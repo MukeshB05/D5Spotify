@@ -21,24 +21,28 @@ const Navigator = () => {
       icon: IoHomeOutline,
       activeIcon: IoHome,
     },
+
     {
       name: "Playlist",
       path: "/Playlist",
       icon: IoMusicalNotesOutline,
       activeIcon: IoMusicalNotes,
     },
+
     {
       name: "Favourite",
       path: "/Favourite",
       icon: IoHeartOutline,
       activeIcon: IoHeart,
     },
+
     {
       name: "Spotify",
       path: "/Spotify",
       icon: FaSpotify,
       activeIcon: FaSpotify,
     },
+
     {
       name: "Live TV",
       path: "/LiveTV",
@@ -59,13 +63,13 @@ const Navigator = () => {
         border-t
         border-black/10
         bg-white/95
+        text-black
         shadow-[0_-8px_30px_rgba(0,0,0,0.08)]
         backdrop-blur-xl
         dark:border-white/10
-        dark:bg-[#0b0b0b]/95
-        supports-[padding:max(0px)]:pb-[env(safe-area-inset-bottom)]
+        dark:bg-[#0b0b0d]/95
+        dark:text-white
       "
-      aria-label="Bottom navigation"
     >
       <div
         className="
@@ -86,30 +90,7 @@ const Navigator = () => {
             key={item.name}
             to={item.path}
             end={item.path === "/"}
-            className={({ isActive }) =>
-              `
-                group
-                relative
-                flex
-                min-w-0
-                flex-col
-                items-center
-                justify-center
-                gap-0.5
-                rounded-xl
-                px-1
-                text-[10px]
-                font-medium
-                transition-all
-                duration-200
-                sm:text-xs
-                ${
-                  isActive
-                    ? "text-[#1DB954]"
-                    : "text-black/60 dark:text-white/60"
-                }
-              `
-            }
+            className="group relative"
           >
             {({ isActive }) => {
               const Icon = isActive
@@ -117,8 +98,28 @@ const Navigator = () => {
                 : item.icon;
 
               return (
-                <>
-                  {/* Active indicator */}
+                <div
+                  className={`
+                    relative
+                    flex
+                    h-full
+                    w-full
+                    flex-col
+                    items-center
+                    justify-center
+                    gap-0.5
+                    rounded-xl
+                    transition-all
+                    duration-200
+                    ${
+                      isActive
+                        ? "text-[#1DB954]"
+                        : "text-gray-600 dark:text-gray-400"
+                    }
+                  `}
+                >
+                  {/* ACTIVE TOP INDICATOR */}
+
                   <span
                     className={`
                       absolute
@@ -136,6 +137,8 @@ const Navigator = () => {
                       }
                     `}
                   />
+
+                  {/* ICON BACKGROUND */}
 
                   <span
                     className={`
@@ -159,7 +162,6 @@ const Navigator = () => {
                         text-[25px]
                         transition-transform
                         duration-200
-                        sm:text-[27px]
                         ${
                           isActive
                             ? "scale-110"
@@ -169,15 +171,31 @@ const Navigator = () => {
                     />
                   </span>
 
-                  <span className="max-w-full truncate leading-4">
+                  {/* LABEL */}
+
+                  <span
+                    className="
+                      max-w-full
+                      truncate
+                      px-0.5
+                      text-[10px]
+                      font-medium
+                      leading-4
+                      sm:text-xs
+                    "
+                  >
                     {item.name}
                   </span>
-                </>
+                </div>
               );
             }}
           </NavLink>
         ))}
       </div>
+
+      {/* ANDROID / IOS SAFE AREA */}
+
+      <div className="h-[env(safe-area-inset-bottom)] bg-transparent" />
     </nav>
   );
 };
