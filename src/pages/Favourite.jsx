@@ -90,6 +90,10 @@ const Favourite = () => {
 
   return (
     <>
+      <Navbar />
+      <div className="flex flex-col mb-[12rem] gap-[2rem] ">
+        {/* Header */}
+        <div className="lg:ml-[3rem] ml-[2rem] flex items-center gap-5 mt-[9rem] lg:mt-[6rem]">
       <main className="min-h-screen w-full pt-[6rem] px-4 pb-32">
         <div className="mx-auto w-full max-w-7xl">
           <header className="mb-7">
