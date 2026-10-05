@@ -1,7 +1,4 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useContext, useEffect, useState } from "react";
 
 import Navigator from "../components/Navigator";
 import Navbar from "../components/Navbar";
@@ -16,202 +13,180 @@ import {
   logoutSpotify,
 } from "../services/spotifyImport";
 
-import {
-  useContext,
-} from "react";
+/* =========================================================
+   SAVE IMPORTED SONGS TO FAVOURITES
+========================================================= */
 
-const saveImportedSongsToFavourites =
-  (songs) => {
-    try {
-      const stored =
-        JSON.parse(
-          localStorage.getItem(
-            "likedSongs"
-          ) || "[]"
-        );
+const saveImportedSongsToFavourites = (songs) => {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem("likedSongs") || "[]"
+    );
 
-      const current =
-        Array.isArray(stored)
-          ? stored
-          : [];
+    const current = Array.isArray(stored) ? stored : [];
 
-      const map = new Map();
+    const map = new Map();
 
-      current.forEach((song) => {
-        if (song?.id != null) {
-          map.set(
-            String(song.id),
-            song
-          );
-        }
-      });
+    current.forEach((song) => {
+      if (song?.id != null) {
+        map.set(String(song.id), song);
+      }
+    });
 
-      let added = 0;
+    let added = 0;
 
-      for (const song of songs || []) {
-        if (!song?.id) {
-          continue;
-        }
-
-        const id =
-          String(song.id);
-
-        if (!map.has(id)) {
-          added++;
-        }
-
-        map.set(id, {
-          ...song,
-
-          audio:
-            song?.audioUrl ||
-            song?.audio ||
-            song?.downloadUrl ||
-            "",
-        });
+    for (const song of songs || []) {
+      if (!song?.id) {
+        continue;
       }
 
-      localStorage.setItem(
-        "likedSongs",
-        JSON.stringify(
-          Array.from(
-            map.values()
-          )
-        )
-      );
+      const id = String(song.id);
 
-      window.dispatchEvent(new Event("favouritesUpdated"));
+      if (!map.has(id)) {
+        added += 1;
+      }
 
-      return added;
-    } catch (error) {
-      console.error(
-        "Favourite songs save failed:",
-        error
-      );
+      map.set(id, {
+        ...song,
 
-      return 0;
-    }
-  };
-
-const saveImportedSourceToFavourite =
-  (spotifyData) => {
-    if (!spotifyData?.id) {
-      return false;
-    }
-
-    let key = "";
-
-    if (
-      spotifyData.type ===
-      "album"
-    ) {
-      key = "likedAlbums";
-    }
-
-    if (
-      spotifyData.type ===
-      "playlist"
-    ) {
-      key = "likedPlaylists";
-    }
-
-    if (!key) {
-      return false;
-    }
-
-    try {
-      const stored =
-        JSON.parse(
-          localStorage.getItem(
-            key
-          ) || "[]"
-        );
-
-      const current =
-        Array.isArray(stored)
-          ? stored
-          : [];
-
-      const existingIndex = current.findIndex(
-        (item) =>
-          item?.source === "spotify" &&
-          String(item?.id) === String(spotifyData.id)
-      );
-
-      const source = {
-        id: spotifyData.id,
-
-        name:
-          spotifyData.name ||
-          `Spotify ${spotifyData.type}`,
-
-        image:
-          spotifyData.image ||
-          "/Unknown.png",
-
-        artists:
-          spotifyData.artists || {
-            primary: [],
-          },
-
-        source: "spotify",
-
-        spotifyType:
-          spotifyData.type,
-
-        spotifyUrl:
-          spotifyData.spotifyUrl ||
+        audio:
+          song?.audioUrl ||
+          song?.audio ||
+          song?.downloadUrl ||
           "",
-      };
-
-      const updated = [...current];
-
-      if (existingIndex >= 0) {
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          ...source,
-        };
-      } else {
-        updated.push(source);
-      }
-
-      localStorage.setItem(
-        key,
-        JSON.stringify(updated)
-      );
-
-      window.dispatchEvent(new Event("favouritesUpdated"));
-
-      return existingIndex < 0;
-    } catch (error) {
-      console.error(
-        "Spotify Favourite save failed:",
-        error
-      );
-
-      return false;
+      });
     }
-  };
+
+    localStorage.setItem(
+      "likedSongs",
+      JSON.stringify(Array.from(map.values()))
+    );
+
+    window.dispatchEvent(
+      new Event("favouritesUpdated")
+    );
+
+    return added;
+  } catch (error) {
+    console.error(
+      "Favourite songs save failed:",
+      error
+    );
+
+    return 0;
+  }
+};
+
+/* =========================================================
+   SAVE IMPORTED ALBUM / PLAYLIST TO FAVOURITES
+========================================================= */
+
+const saveImportedSourceToFavourite = (spotifyData) => {
+  if (!spotifyData?.id) {
+    return false;
+  }
+
+  let key = "";
+
+  if (spotifyData.type === "album") {
+    key = "likedAlbums";
+  }
+
+  if (spotifyData.type === "playlist") {
+    key = "likedPlaylists";
+  }
+
+  if (!key) {
+    return false;
+  }
+
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(key) || "[]"
+    );
+
+    const current = Array.isArray(stored)
+      ? stored
+      : [];
+
+    const existingIndex = current.findIndex(
+      (item) =>
+        item?.source === "spotify" &&
+        String(item?.id) ===
+          String(spotifyData.id)
+    );
+
+    const source = {
+      id: spotifyData.id,
+
+      name:
+        spotifyData.name ||
+        `Spotify ${spotifyData.type}`,
+
+      image:
+        spotifyData.image ||
+        "/Unknown.png",
+
+      artists:
+        spotifyData.artists || {
+          primary: [],
+        },
+
+      source: "spotify",
+
+      spotifyType:
+        spotifyData.type,
+
+      spotifyUrl:
+        spotifyData.spotifyUrl || "",
+    };
+
+    const updated = [...current];
+
+    if (existingIndex >= 0) {
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        ...source,
+      };
+    } else {
+      updated.push(source);
+    }
+
+    localStorage.setItem(
+      key,
+      JSON.stringify(updated)
+    );
+
+    window.dispatchEvent(
+      new Event("favouritesUpdated")
+    );
+
+    return existingIndex < 0;
+  } catch (error) {
+    console.error(
+      "Spotify Favourite save failed:",
+      error
+    );
+
+    return false;
+  }
+};
+
+/* =========================================================
+   SPOTIFY IMPORT COMPONENT
+========================================================= */
 
 const SpotifyImport = () => {
-  const {
-    playMusic,
-  } = useContext(
-    MusicContext
-  );
+  const { playMusic } =
+    useContext(MusicContext) || {};
 
-  const [url, setUrl] =
-    useState("");
+  const [url, setUrl] = useState("");
 
   const [loading, setLoading] =
     useState(false);
 
   const [connected, setConnected] =
-    useState(
-      Boolean(
-        getSpotifyToken()
-      )
-    );
+    useState(Boolean(getSpotifyToken()));
 
   const [result, setResult] =
     useState(null);
@@ -222,24 +197,18 @@ const SpotifyImport = () => {
   const [favouriteAdded, setFavouriteAdded] =
     useState(0);
 
-  /* ========================================
+  /* =======================================================
      SPOTIFY CALLBACK
-  ======================================== */
+  ======================================================= */
 
   useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+    const params = new URLSearchParams(
+      window.location.search
+    );
 
-    const code =
-      params.get("code");
-
-    const state =
-      params.get("state");
-
-    const errorParam =
-      params.get("error");
+    const code = params.get("code");
+    const state = params.get("state");
+    const errorParam = params.get("error");
 
     if (errorParam) {
       setError(
@@ -259,215 +228,307 @@ const SpotifyImport = () => {
       return;
     }
 
-    const completeLogin =
-      async () => {
-        try {
-          setLoading(true);
-
-          await exchangeSpotifyCode(
-            code,
-            state
-          );
-
-          setConnected(true);
-
-          window.history.replaceState(
-            {},
-            document.title,
-            "/spotify-import"
-          );
-        } catch (loginError) {
-          console.error(
-            loginError
-          );
-
-          setError(
-            loginError?.message ||
-              "Spotify connection failed."
-          );
-        } finally {
-          setLoading(false);
-        }
-      };
-
-    completeLogin();
-  }, []);
-
-  /* ========================================
-     CONNECT
-  ======================================== */
-
-  const connectSpotify =
-    async () => {
-      try {
-        const loginUrl =
-          await createSpotifyLoginUrl();
-
-        window.location.href =
-          loginUrl;
-      } catch (error) {
-        setError(
-          error?.message ||
-            "Unable to connect Spotify."
-        );
-      }
-    };
-
-  /* ========================================
-     IMPORT
-  ======================================== */
-
-  const handleImport =
-    async (event) => {
-      event.preventDefault();
-
-      setError("");
-      setResult(null);
-      setFavouriteAdded(0);
-
-      if (!connected) {
-        setError(
-          "Please connect Spotify first."
-        );
-
-        return;
-      }
-
-      if (!url.trim()) {
-        setError(
-          "Paste a Spotify track, album or playlist URL."
-        );
-
-        return;
-      }
-
+    const completeLogin = async () => {
       try {
         setLoading(true);
+        setError("");
 
-        const spotifyData =
-          await getSpotifyItems(
-            url.trim()
-          );
-
-        if (
-          !spotifyData.songs?.length
-        ) {
-          throw new Error(
-            "No playable Spotify tracks were found."
-          );
-        }
-
-        const addedSongs =
-          saveImportedSongsToFavourites(
-            spotifyData.songs
-          );
-
-        const addedSource =
-          saveImportedSourceToFavourite(
-            spotifyData
-          );
-
-        setFavouriteAdded(
-          addedSongs +
-            (addedSource ? 1 : 0)
+        await exchangeSpotifyCode(
+          code,
+          state
         );
 
-        setResult(
-          spotifyData
-        );
+        setConnected(true);
 
-        /* Queue ALL imported tracks */
-        playMusic(
-          spotifyData.songs[0],
-          spotifyData.songs
+        window.history.replaceState(
+          {},
+          document.title,
+          "/spotify-import"
         );
-      } catch (importError) {
+      } catch (loginError) {
         console.error(
-          importError
+          "Spotify login error:",
+          loginError
         );
 
         setError(
-          importError?.message ||
-            "Spotify import failed."
+          loginError?.message ||
+            "Spotify connection failed."
         );
       } finally {
         setLoading(false);
       }
     };
 
-  /* ========================================
+    completeLogin();
+  }, []);
+
+  /* =======================================================
+     CONNECT SPOTIFY
+  ======================================================= */
+
+  const connectSpotify = async () => {
+    try {
+      setError("");
+      setLoading(true);
+
+      const loginUrl =
+        await createSpotifyLoginUrl();
+
+      if (!loginUrl) {
+        throw new Error(
+          "Spotify login URL was not created."
+        );
+      }
+
+      window.location.href = loginUrl;
+    } catch (connectError) {
+      console.error(
+        "Spotify connection error:",
+        connectError
+      );
+
+      setError(
+        connectError?.message ||
+          "Unable to connect Spotify."
+      );
+
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
+     IMPORT
+  ======================================================= */
+
+  const handleImport = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setResult(null);
+    setFavouriteAdded(0);
+
+    if (!connected) {
+      setError(
+        "Please connect Spotify first."
+      );
+
+      return;
+    }
+
+    if (!url.trim()) {
+      setError(
+        "Paste a Spotify track, album or playlist URL."
+      );
+
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const spotifyData =
+        await getSpotifyItems(
+          url.trim()
+        );
+
+      if (!spotifyData) {
+        throw new Error(
+          "No Spotify data was returned."
+        );
+      }
+
+      if (
+        !Array.isArray(
+          spotifyData.songs
+        ) ||
+        spotifyData.songs.length === 0
+      ) {
+        throw new Error(
+          "No playable Spotify tracks were found."
+        );
+      }
+
+      /* ---------------------------------------------
+         Save songs to Favourite
+      --------------------------------------------- */
+
+      const addedSongs =
+        saveImportedSongsToFavourites(
+          spotifyData.songs
+        );
+
+      /* ---------------------------------------------
+         Save album / playlist to Favourite
+      --------------------------------------------- */
+
+      const addedSource =
+        saveImportedSourceToFavourite(
+          spotifyData
+        );
+
+      const totalAdded =
+        addedSongs +
+        (addedSource ? 1 : 0);
+
+      setFavouriteAdded(
+        totalAdded
+      );
+
+      setResult(
+        spotifyData
+      );
+
+      /* ---------------------------------------------
+         Queue ALL imported tracks
+      --------------------------------------------- */
+
+      if (typeof playMusic === "function") {
+        playMusic(
+          spotifyData.songs[0],
+          spotifyData.songs
+        );
+      }
+    } catch (importError) {
+      console.error(
+        "Spotify import error:",
+        importError
+      );
+
+      setError(
+        importError?.message ||
+          "Spotify import failed."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================================================
      LOGOUT
-  ======================================== */
+  ======================================================= */
 
   const handleLogout = () => {
-    logoutSpotify();
+    try {
+      logoutSpotify();
+    } catch (logoutError) {
+      console.error(
+        "Spotify logout error:",
+        logoutError
+      );
+    }
 
     setConnected(false);
     setResult(null);
     setError("");
+    setUrl("");
+    setFavouriteAdded(0);
   };
+
+  /* =======================================================
+     RESULT IMAGE
+  ======================================================= */
+
+  const resultImage =
+    result?.image || "/Unknown.png";
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <>
       <Navbar />
-      <div className="flex flex-col mb-[12rem] gap-[2rem] ">
-        {/* Header */}
+
       <main
         className="
           min-h-screen
-          pt-[6rem]
+          w-full
           px-4
-          pb-32
-          flex
-          justify-center
+          pt-[6rem]
+          pb-[12rem]
+          transition-colors
+          duration-300
+          bg-[var(--background)]
+          text-[var(--text-primary)]
         "
       >
         <div
           className="
+            mx-auto
+            flex
             w-full
             max-w-2xl
-            mt-5
+            justify-center
+            pt-5
           "
         >
           <div
             className="
+              w-full
+              overflow-hidden
               rounded-2xl
               border
-              border-gray-200
-              dark:border-gray-800
-              bg-white
-              dark:bg-black
+              border-[var(--card-border)]
+              bg-[var(--card-bg)]
               p-5
               shadow-lg
+              transition-colors
+              duration-300
+              sm:p-6
             "
           >
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold">
+            {/* =========================================
+                HEADER
+            ========================================= */}
+
+            <div className="mb-6 text-center">
+              <h1
+                className="
+                  text-2xl
+                  font-bold
+                  text-[var(--text-primary)]
+                  sm:text-3xl
+                "
+              >
                 Spotify Import
               </h1>
 
-              <p className="mt-2 text-sm opacity-60">
+              <p
+                className="
+                  mt-2
+                  text-sm
+                  text-[var(--text-secondary)]
+                "
+              >
                 Import Spotify tracks,
                 albums and playlists
-                into your queue.
+                into your queue and favourites.
               </p>
             </div>
+
+            {/* =========================================
+                NOT CONNECTED
+            ========================================= */}
 
             {!connected ? (
               <button
                 type="button"
-                onClick={
-                  connectSpotify
-                }
+                onClick={connectSpotify}
                 disabled={loading}
                 className="
                   w-full
                   rounded-xl
-                  bg-green-500
-                  hover:bg-green-600
-                  text-white
+                  bg-[#1DB954]
+                  px-4
                   py-3
                   font-semibold
+                  text-white
+                  transition
+                  duration-200
+                  hover:bg-[#1ed760]
+                  active:scale-[0.99]
+                  disabled:cursor-not-allowed
                   disabled:opacity-50
                 "
               >
@@ -477,27 +538,70 @@ const SpotifyImport = () => {
               </button>
             ) : (
               <>
+                {/* =====================================
+                    CONNECTED STATUS
+                ===================================== */}
+
                 <div
                   className="
                     mb-4
-                    rounded-lg
+                    flex
+                    items-center
+                    gap-2
+                    rounded-xl
+                    border
+                    border-green-500/20
                     bg-green-500/10
-                    text-green-500
                     px-4
                     py-3
                     text-sm
+                    text-green-500
                   "
                 >
-                  ✓ Spotify connected
+                  <span
+                    className="
+                      flex
+                      h-6
+                      w-6
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-green-500
+                      text-xs
+                      font-bold
+                      text-white
+                    "
+                  >
+                    ✓
+                  </span>
+
+                  <span>
+                    Spotify connected
+                  </span>
                 </div>
 
+                {/* =====================================
+                    IMPORT FORM
+                ===================================== */}
+
                 <form
-                  onSubmit={
-                    handleImport
-                  }
+                  onSubmit={handleImport}
                   className="space-y-3"
                 >
+                  <label
+                    htmlFor="spotify-url"
+                    className="
+                      block
+                      text-sm
+                      font-medium
+                      text-[var(--text-primary)]
+                    "
+                  >
+                    Spotify URL
+                  </label>
+
                   <input
+                    id="spotify-url"
                     type="url"
                     value={url}
                     onChange={(event) =>
@@ -506,31 +610,48 @@ const SpotifyImport = () => {
                       )
                     }
                     placeholder="Paste Spotify track, album or playlist URL"
+                    disabled={loading}
+                    autoComplete="off"
                     className="
                       w-full
                       rounded-xl
                       border
-                      border-gray-300
-                      dark:border-gray-700
-                      bg-transparent
+                      border-[var(--input-border)]
+                      bg-[var(--input-bg)]
                       px-4
                       py-3
+                      text-[var(--text-primary)]
+                      placeholder:text-[var(--text-secondary)]
                       outline-none
+                      transition
+                      duration-200
                       focus:border-green-500
+                      focus:ring-2
+                      focus:ring-green-500/20
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
                     "
                   />
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={
+                      loading ||
+                      !url.trim()
+                    }
                     className="
                       w-full
                       rounded-xl
-                      bg-green-500
-                      hover:bg-green-600
-                      text-white
+                      bg-[#1DB954]
+                      px-4
                       py-3
                       font-semibold
+                      text-white
+                      transition
+                      duration-200
+                      hover:bg-[#1ed760]
+                      active:scale-[0.99]
+                      disabled:cursor-not-allowed
                       disabled:opacity-50
                     "
                   >
@@ -540,19 +661,30 @@ const SpotifyImport = () => {
                   </button>
                 </form>
 
+                {/* =====================================
+                    DISCONNECT
+                ===================================== */}
+
                 <button
                   type="button"
-                  onClick={
-                    handleLogout
-                  }
+                  onClick={handleLogout}
+                  disabled={loading}
                   className="
                     mt-3
                     w-full
                     rounded-xl
                     border
-                    border-red-500
+                    border-red-500/50
+                    bg-red-500/5
+                    px-4
+                    py-2.5
+                    font-medium
                     text-red-500
-                    py-2
+                    transition
+                    duration-200
+                    hover:bg-red-500/10
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
                   "
                 >
                   Disconnect Spotify
@@ -560,63 +692,109 @@ const SpotifyImport = () => {
               </>
             )}
 
+            {/* =========================================
+                ERROR
+            ========================================= */}
+
             {error && (
               <div
+                role="alert"
                 className="
                   mt-4
                   rounded-xl
+                  border
+                  border-red-500/20
                   bg-red-500/10
-                  text-red-500
                   px-4
                   py-3
                   text-sm
+                  text-red-500
                 "
               >
-                {error}
+                <div className="flex gap-2">
+                  <span className="font-bold">
+                    !
+                  </span>
+
+                  <span>
+                    {error}
+                  </span>
+                </div>
               </div>
             )}
+
+            {/* =========================================
+                FAVOURITE SUCCESS
+            ========================================= */}
 
             {favouriteAdded > 0 && (
               <div
                 className="
                   mt-4
                   rounded-xl
+                  border
+                  border-green-500/20
                   bg-green-500/10
-                  text-green-500
                   px-4
                   py-3
                   text-sm
+                  text-green-500
                 "
               >
-                ✓ Added automatically
-                to Favourite
-                {favouriteAdded > 1
-                  ? ` (${favouriteAdded} new items)`
-                  : ""}
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">
+                    ✓
+                  </span>
+
+                  <span>
+                    Added automatically to Favourite
+                    {favouriteAdded > 1
+                      ? ` (${favouriteAdded} new items)`
+                      : ""}
+                  </span>
+                </div>
               </div>
             )}
 
+            {/* =========================================
+                IMPORT RESULT
+            ========================================= */}
+
             {result && (
-              <div className="mt-5">
+              <div
+                className="
+                  mt-5
+                  overflow-hidden
+                  rounded-xl
+                  border
+                  border-[var(--card-border)]
+                  bg-[var(--secondary-bg)]
+                "
+              >
                 <div
                   className="
                     flex
                     items-center
-                    gap-3
+                    gap-4
+                    p-4
                   "
                 >
                   <img
-                    src={
-                      result.image ||
-                      "/Unknown.png"
+                    src={resultImage}
+                    alt={
+                      result.name ||
+                      "Spotify"
                     }
-                    alt={result.name}
                     className="
-                      w-16
                       h-16
+                      w-16
+                      shrink-0
                       rounded-xl
+                      border
+                      border-[var(--card-border)]
                       object-cover
                     "
+                    loading="lazy"
                     onError={(event) => {
                       event.currentTarget.onerror =
                         null;
@@ -626,17 +804,42 @@ const SpotifyImport = () => {
                     }}
                   />
 
-                  <div>
-                    <p className="font-bold">
-                      {result.name}
+                  <div className="min-w-0">
+                    <p
+                      className="
+                        truncate
+                        font-bold
+                        text-[var(--text-primary)]
+                      "
+                    >
+                      {result.name ||
+                        "Spotify Import"}
                     </p>
 
-                    <p className="text-sm opacity-60 capitalize">
-                      {result.type}
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        capitalize
+                        text-[var(--text-secondary)]
+                      "
+                    >
+                      {result.type ||
+                        "Spotify"}
                     </p>
 
-                    <p className="text-xs text-green-500">
-                      {result.songs.length}{" "}
+                    <p
+                      className="
+                        mt-1
+                        text-xs
+                        text-green-500
+                      "
+                    >
+                      {Array.isArray(
+                        result.songs
+                      )
+                        ? result.songs.length
+                        : 0}{" "}
                       songs queued
                     </p>
                   </div>
