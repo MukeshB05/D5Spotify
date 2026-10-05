@@ -38,7 +38,7 @@ const Navigator = () => {
 
     {
       name: "Spotify",
-      path: "/Spotify",
+      path: "/spotify-import",
       icon: FaSpotify,
       activeIcon: FaSpotify,
     },
