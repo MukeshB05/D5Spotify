@@ -2,17 +2,22 @@ import {
   GoHome,
   GoHomeFill,
 } from "react-icons/go";
+
 import {
   IoHeartOutline,
   IoHeartSharp,
 } from "react-icons/io5";
+
 import {
   RiFolderMusicFill,
   RiFolderMusicLine,
 } from "react-icons/ri";
+
 import { MdLiveTv } from "react-icons/md";
 import { FaSpotify } from "react-icons/fa";
+
 import { useEffect, useState } from "react";
+
 import {
   Link,
   useLocation,
@@ -29,6 +34,84 @@ const Navigator = () => {
 
   const [wakeLock, setWakeLock] =
     useState(null);
+
+  /*
+  ==================================================
+  THEME DETECTION
+  ==================================================
+  Supports:
+
+  html.dark
+  body.dark
+  html[data-theme="dark"]
+  body[data-theme="dark"]
+  ==================================================
+  */
+
+  const getTheme = () => {
+    if (typeof document === "undefined") {
+      return "light";
+    }
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const isDark =
+      html.classList.contains("dark") ||
+      body.classList.contains("dark") ||
+      html.getAttribute("data-theme") === "dark" ||
+      body.getAttribute("data-theme") === "dark";
+
+    return isDark ? "dark" : "light";
+  };
+
+  const [theme, setTheme] = useState(getTheme);
+
+  /*
+  ==================================================
+  WATCH FOR THEME CHANGES
+  ==================================================
+  */
+
+  useEffect(() => {
+    const updateTheme = () => {
+      setTheme(getTheme());
+    };
+
+    updateTheme();
+
+    const observer = new MutationObserver(
+      updateTheme
+    );
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [
+        "class",
+        "data-theme",
+      ],
+    });
+
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: [
+        "class",
+        "data-theme",
+      ],
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const isDark = theme === "dark";
+
+  /*
+  ==================================================
+  WAKE LOCK
+  ==================================================
+  */
 
   const requestWakeLock = async () => {
     try {
@@ -79,11 +162,16 @@ const Navigator = () => {
     releaseWakeLock();
   };
 
+  /*
+  ==================================================
+  RE-ACTIVATE WAKE LOCK AFTER VISIBILITY CHANGE
+  ==================================================
+  */
+
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (
-        document.visibilityState ===
-          "visible" &&
+        document.visibilityState === "visible" &&
         showTVModal &&
         !wakeLock
       ) {
@@ -104,13 +192,40 @@ const Navigator = () => {
     };
   }, [showTVModal, wakeLock]);
 
+  /*
+  ==================================================
+  THEME COLORS
+  ==================================================
+  */
+
+  const navBackground = isDark
+    ? "bg-black"
+    : "bg-white";
+
+  const navBorder = isDark
+    ? "border-gray-800"
+    : "border-gray-200";
+
+  const inactiveText = isDark
+    ? "text-gray-300"
+    : "text-gray-600";
+
+  const activeText = isDark
+    ? "text-green-400"
+    : "text-green-500";
+
+  const navShadow = isDark
+    ? "shadow-[0_-2px_10px_rgba(255,255,255,0.05)]"
+    : "shadow-[0_-2px_10px_rgba(0,0,0,0.08)]";
+
   return (
     <>
-      {/* ================================
+      {/* ==================================================
           MOBILE BOTTOM NAVIGATION
-      ================================= */}
+      ================================================== */}
+
       <nav
-        className="
+        className={`
           lg:hidden
           fixed
           bottom-0
@@ -122,26 +237,39 @@ const Navigator = () => {
           flex
           items-center
           justify-around
-          bg-white
-          dark:bg-black
+          ${navBackground}
           border-t
-          border-gray-200
-          dark:border-gray-800
-          shadow-[0_-2px_10px_rgba(0,0,0,0.08)]
-          dark:shadow-[0_-2px_10px_rgba(0,0,0,0.35)]
-        "
+          ${navBorder}
+          ${navShadow}
+          transition-colors
+          duration-200
+        `}
       >
-        {/* HOME */}
+
+        {/* ==================================================
+            HOME
+        ================================================== */}
+
         <Link
           to="/"
           className="flex-1 h-full"
         >
           <div
-            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
-              location.pathname === "/"
-                ? "text-green-500 dark:text-green-400"
-                : "text-gray-600 dark:text-gray-300"
-            }`}
+            className={`
+              h-full
+              flex
+              flex-col
+              items-center
+              justify-center
+              text-xs
+              transition-colors
+              duration-200
+              ${
+                location.pathname === "/"
+                  ? activeText
+                  : inactiveText
+              }
+            `}
           >
             {location.pathname === "/" ? (
               <GoHomeFill className="text-2xl" />
@@ -153,17 +281,30 @@ const Navigator = () => {
           </div>
         </Link>
 
-        {/* PLAYLIST */}
+        {/* ==================================================
+            PLAYLIST
+        ================================================== */}
+
         <Link
           to="/Playlist"
           className="flex-1 h-full"
         >
           <div
-            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
-              location.pathname === "/Playlist"
-                ? "text-green-500 dark:text-green-400"
-                : "text-gray-600 dark:text-gray-300"
-            }`}
+            className={`
+              h-full
+              flex
+              flex-col
+              items-center
+              justify-center
+              text-xs
+              transition-colors
+              duration-200
+              ${
+                location.pathname === "/Playlist"
+                  ? activeText
+                  : inactiveText
+              }
+            `}
           >
             {location.pathname === "/Playlist" ? (
               <RiFolderMusicFill className="text-2xl" />
@@ -175,17 +316,30 @@ const Navigator = () => {
           </div>
         </Link>
 
-        {/* FAVOURITE */}
+        {/* ==================================================
+            FAVOURITE
+        ================================================== */}
+
         <Link
           to="/Favourite"
           className="flex-1 h-full"
         >
           <div
-            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
-              location.pathname === "/Favourite"
-                ? "text-green-500 dark:text-green-400"
-                : "text-gray-600 dark:text-gray-300"
-            }`}
+            className={`
+              h-full
+              flex
+              flex-col
+              items-center
+              justify-center
+              text-xs
+              transition-colors
+              duration-200
+              ${
+                location.pathname === "/Favourite"
+                  ? activeText
+                  : inactiveText
+              }
+            `}
           >
             {location.pathname === "/Favourite" ? (
               <IoHeartSharp className="text-2xl" />
@@ -197,7 +351,10 @@ const Navigator = () => {
           </div>
         </Link>
 
-        {/* SPOTIFY */}
+        {/* ==================================================
+            SPOTIFY
+        ================================================== */}
+
         <Link
           to="/spotify-import"
           className="flex-1 h-full"
@@ -205,29 +362,43 @@ const Navigator = () => {
           title="Import Spotify tracks, albums and playlists"
         >
           <div
-            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
-              location.pathname === "/spotify-import"
-                ? "text-green-500 dark:text-green-400"
-                : "text-gray-600 dark:text-gray-300"
-            }`}
+            className={`
+              h-full
+              flex
+              flex-col
+              items-center
+              justify-center
+              text-xs
+              transition-colors
+              duration-200
+              ${
+                location.pathname ===
+                "/spotify-import"
+                  ? activeText
+                  : inactiveText
+              }
+            `}
           >
             <FaSpotify className="text-2xl" />
+
             <span>Spotify</span>
           </div>
         </Link>
 
-        {/* LIVE TV */}
+        {/* ==================================================
+            LIVE TV
+        ================================================== */}
+
         <button
           type="button"
           onClick={openTVModal}
-          className="
+          className={`
             flex-1
             h-full
-            text-gray-600
-            dark:text-gray-300
+            ${inactiveText}
             transition-colors
             duration-200
-          "
+          `}
           aria-label="Open Live TV"
         >
           <div
@@ -245,7 +416,16 @@ const Navigator = () => {
             <span>Live TV</span>
 
             {wakeLockStatus === "Active" && (
-              <span className="text-[8px] text-green-500 dark:text-green-400">
+              <span
+                className={`
+                  text-[8px]
+                  ${
+                    isDark
+                      ? "text-green-400"
+                      : "text-green-500"
+                  }
+                `}
+              >
                 Active
               </span>
             )}
@@ -253,9 +433,10 @@ const Navigator = () => {
         </button>
       </nav>
 
-      {/* ================================
+      {/* ==================================================
           LIVE TV MODAL
-      ================================= */}
+      ================================================== */}
+
       {showTVModal && (
         <div
           className="
@@ -266,7 +447,6 @@ const Navigator = () => {
             items-center
             justify-center
             bg-black/80
-            dark:bg-black/90
           "
         >
           <div
@@ -277,7 +457,6 @@ const Navigator = () => {
               max-w-4xl
               max-h-[85vh]
               bg-black
-              dark:bg-black
             "
           >
             <button
