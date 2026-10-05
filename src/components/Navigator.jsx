@@ -1,155 +1,184 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { GoHome, GoHomeFill } from "react-icons/go";
-import { IoHeartOutline, IoHeartSharp } from "react-icons/io5";
-import { RiFolderMusicFill, RiFolderMusicLine } from "react-icons/ri";
-import { MdLiveTv } from "react-icons/md";
+import { NavLink } from "react-router-dom";
+
+import {
+  IoHomeOutline,
+  IoHome,
+  IoHeartOutline,
+  IoHeart,
+  IoMusicalNotesOutline,
+  IoMusicalNotes,
+  IoTvOutline,
+  IoTv,
+} from "react-icons/io5";
+
 import { FaSpotify } from "react-icons/fa";
 
 const Navigator = () => {
-  const location = useLocation();
-  const [showTVModal, setShowTVModal] = useState(false);
-  const [wakeLockStatus, setWakeLockStatus] = useState("Inactive");
-  const wakeLockRef = useRef(null);
-
-  const isHome = location.pathname === "/";
-  const isPlaylist = /^\/(Playlist|playlist)$/.test(location.pathname);
-  const isFavourite = /^\/(Favourite|favourite)$/.test(location.pathname);
-  const isSpotify = location.pathname === "/spotify-import";
-
-  const requestWakeLock = async () => {
-    try {
-      if (!("wakeLock" in navigator)) {
-        setWakeLockStatus("Not Supported");
-        return;
-      }
-
-      if (wakeLockRef.current) return;
-
-      const lock = await navigator.wakeLock.request("screen");
-      wakeLockRef.current = lock;
-      setWakeLockStatus("Active");
-
-      lock.addEventListener("release", () => {
-        wakeLockRef.current = null;
-        setWakeLockStatus("Inactive");
-      });
-    } catch (error) {
-      console.error("Wake Lock request failed:", error);
-      setWakeLockStatus("Failed");
-    }
-  };
-
-  const releaseWakeLock = async () => {
-    const lock = wakeLockRef.current;
-    wakeLockRef.current = null;
-
-    if (lock) {
-      try {
-        await lock.release();
-      } catch (error) {
-        console.warn("Wake Lock release failed:", error);
-      }
-    }
-
-    setWakeLockStatus("Inactive");
-  };
-
-  const openTVModal = async () => {
-    setShowTVModal(true);
-    await requestWakeLock();
-  };
-
-  const closeTVModal = async () => {
-    setShowTVModal(false);
-    await releaseWakeLock();
-  };
-
-  useEffect(() => {
-    const onVisibilityChange = async () => {
-      if (document.visibilityState === "visible" && showTVModal) {
-        await requestWakeLock();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [showTVModal]);
-
-  useEffect(() => {
-    return () => {
-      const lock = wakeLockRef.current;
-      if (lock) {
-        lock.release().catch(() => {});
-        wakeLockRef.current = null;
-      }
-    };
-  }, []);
-
-  const itemClass = (active) =>
-    `flex h-full flex-1 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[11px] sm:text-xs transition-colors ${
-      active ? "text-[#1DB954]" : "text-[var(--nav-text)]"
-    }`;
+  const navigation = [
+    {
+      name: "Home",
+      path: "/",
+      icon: IoHomeOutline,
+      activeIcon: IoHome,
+    },
+    {
+      name: "Playlist",
+      path: "/Playlist",
+      icon: IoMusicalNotesOutline,
+      activeIcon: IoMusicalNotes,
+    },
+    {
+      name: "Favourite",
+      path: "/Favourite",
+      icon: IoHeartOutline,
+      activeIcon: IoHeart,
+    },
+    {
+      name: "Spotify",
+      path: "/Spotify",
+      icon: FaSpotify,
+      activeIcon: FaSpotify,
+    },
+    {
+      name: "Live TV",
+      path: "/LiveTV",
+      icon: IoTvOutline,
+      activeIcon: IoTv,
+    },
+  ];
 
   return (
-    <>
-      <nav
-        className="Navigator fixed bottom-0 left-0 right-0 z-[80] lg:hidden h-[4.35rem] w-full border-t border-[var(--nav-border)] bg-[var(--navigator)] shadow-[0_-4px_18px_var(--nav-shadow)] backdrop-blur-xl"
-        aria-label="Mobile navigation"
+    <nav
+      className="
+        fixed
+        bottom-0
+        left-0
+        right-0
+        z-[1000]
+        w-full
+        border-t
+        border-black/10
+        bg-white/95
+        shadow-[0_-8px_30px_rgba(0,0,0,0.08)]
+        backdrop-blur-xl
+        dark:border-white/10
+        dark:bg-[#0b0b0b]/95
+        supports-[padding:max(0px)]:pb-[env(safe-area-inset-bottom)]
+      "
+      aria-label="Bottom navigation"
+    >
+      <div
+        className="
+          mx-auto
+          grid
+          h-[68px]
+          w-full
+          max-w-3xl
+          grid-cols-5
+          items-stretch
+          px-1
+          sm:h-[72px]
+          sm:px-2
+        "
       >
-        <div className="mx-auto flex h-full w-full max-w-xl items-stretch">
-          <Link to="/" className={itemClass(isHome)} aria-label="Home">
-            {isHome ? <GoHomeFill className="text-[1.65rem]" /> : <GoHome className="text-[1.65rem]" />}
-            <span>Home</span>
-          </Link>
+        {navigation.map((item) => (
+          <NavLink
+            key={item.name}
+            to={item.path}
+            end={item.path === "/"}
+            className={({ isActive }) =>
+              `
+                group
+                relative
+                flex
+                min-w-0
+                flex-col
+                items-center
+                justify-center
+                gap-0.5
+                rounded-xl
+                px-1
+                text-[10px]
+                font-medium
+                transition-all
+                duration-200
+                sm:text-xs
+                ${
+                  isActive
+                    ? "text-[#1DB954]"
+                    : "text-black/60 dark:text-white/60"
+                }
+              `
+            }
+          >
+            {({ isActive }) => {
+              const Icon = isActive
+                ? item.activeIcon
+                : item.icon;
 
-          <Link to="/Playlist" className={itemClass(isPlaylist)} aria-label="Playlist">
-            {isPlaylist ? <RiFolderMusicFill className="text-[1.65rem]" /> : <RiFolderMusicLine className="text-[1.65rem]" />}
-            <span>Playlist</span>
-          </Link>
+              return (
+                <>
+                  {/* Active indicator */}
+                  <span
+                    className={`
+                      absolute
+                      top-0
+                      h-[3px]
+                      w-8
+                      rounded-b-full
+                      bg-[#1DB954]
+                      transition-all
+                      duration-200
+                      ${
+                        isActive
+                          ? "scale-100 opacity-100"
+                          : "scale-50 opacity-0"
+                      }
+                    `}
+                  />
 
-          <Link to="/Favourite" className={itemClass(isFavourite)} aria-label="Favourite">
-            {isFavourite ? <IoHeartSharp className="text-[1.65rem]" /> : <IoHeartOutline className="text-[1.65rem]" />}
-            <span>Favourite</span>
-          </Link>
+                  <span
+                    className={`
+                      flex
+                      h-9
+                      w-12
+                      items-center
+                      justify-center
+                      rounded-xl
+                      transition-all
+                      duration-200
+                      ${
+                        isActive
+                          ? "bg-[#1DB954]/10"
+                          : "group-hover:bg-black/5 dark:group-hover:bg-white/10"
+                      }
+                    `}
+                  >
+                    <Icon
+                      className={`
+                        text-[25px]
+                        transition-transform
+                        duration-200
+                        sm:text-[27px]
+                        ${
+                          isActive
+                            ? "scale-110"
+                            : "scale-100"
+                        }
+                      `}
+                    />
+                  </span>
 
-          <Link to="/spotify-import" className={itemClass(isSpotify)} aria-label="Spotify Import">
-            <FaSpotify className="text-[1.55rem]" />
-            <span>Spotify</span>
-          </Link>
-
-          <button type="button" onClick={openTVModal} className={itemClass(false)} aria-label="Open Live TV">
-            <MdLiveTv className="text-[1.7rem]" />
-            <span>Live TV</span>
-          </button>
-        </div>
-      </nav>
-
-      {showTVModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-0 sm:p-4">
-          <div className="relative h-full w-full max-w-5xl overflow-hidden bg-black sm:h-[88vh] sm:rounded-2xl sm:border sm:border-white/10">
-            <button
-              type="button"
-              onClick={closeTVModal}
-              className="absolute right-3 top-3 z-10 rounded-full bg-black/75 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
-              aria-label="Close Live TV"
-            >
-              × Close
-            </button>
-
-            <iframe
-              src="https://dreamplay.pages.dev/"
-              title="Dreamly5 Live TV"
-              className="h-full w-full border-0"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      )}
-    </>
+                  <span className="max-w-full truncate leading-4">
+                    {item.name}
+                  </span>
+                </>
+              );
+            }}
+          </NavLink>
+        ))}
+      </div>
+    </nav>
   );
 };
 
