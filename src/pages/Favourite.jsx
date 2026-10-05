@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FaSpotify } from "react-icons/fa";
 import MusicContext from "../context/MusicContext";
 import SongsList from "../components/SongsList";
+import Navbar from "../components/Navbar";
 import Navigator from "../components/Navigator";
 
 const imageUrl = (image) => {
