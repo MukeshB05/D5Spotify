@@ -1,202 +1,317 @@
-import { NavLink } from "react-router-dom";
-
 import {
-  IoHomeOutline,
-  IoHome,
+  GoHome,
+  GoHomeFill,
+} from "react-icons/go";
+import {
   IoHeartOutline,
-  IoHeart,
-  IoMusicalNotesOutline,
-  IoMusicalNotes,
-  IoTvOutline,
-  IoTv,
+  IoHeartSharp,
 } from "react-icons/io5";
-
+import {
+  RiFolderMusicFill,
+  RiFolderMusicLine,
+} from "react-icons/ri";
+import { MdLiveTv } from "react-icons/md";
 import { FaSpotify } from "react-icons/fa";
+import { useEffect, useState } from "react";
+import {
+  Link,
+  useLocation,
+} from "react-router-dom";
 
 const Navigator = () => {
-  const navigation = [
-    {
-      name: "Home",
-      path: "/",
-      icon: IoHomeOutline,
-      activeIcon: IoHome,
-    },
+  const location = useLocation();
 
-    {
-      name: "Playlist",
-      path: "/Playlist",
-      icon: IoMusicalNotesOutline,
-      activeIcon: IoMusicalNotes,
-    },
+  const [showTVModal, setShowTVModal] =
+    useState(false);
 
-    {
-      name: "Favourite",
-      path: "/Favourite",
-      icon: IoHeartOutline,
-      activeIcon: IoHeart,
-    },
+  const [wakeLockStatus, setWakeLockStatus] =
+    useState("Inactive");
 
-    {
-      name: "Spotify",
-      path: "/spotify-import",
-      icon: FaSpotify,
-      activeIcon: FaSpotify,
-    },
+  const [wakeLock, setWakeLock] =
+    useState(null);
 
-    {
-      name: "Live TV",
-      path: "/LiveTV",
-      icon: IoTvOutline,
-      activeIcon: IoTv,
-    },
-  ];
+  const requestWakeLock = async () => {
+    try {
+      if (!("wakeLock" in navigator)) {
+        setWakeLockStatus("Not Supported");
+        return;
+      }
+
+      const lock =
+        await navigator.wakeLock.request(
+          "screen"
+        );
+
+      setWakeLock(lock);
+      setWakeLockStatus("Active");
+
+      lock.addEventListener(
+        "release",
+        () => {
+          setWakeLockStatus("Inactive");
+        }
+      );
+    } catch (error) {
+      console.error(
+        "Wake Lock request failed:",
+        error
+      );
+
+      setWakeLockStatus("Failed");
+    }
+  };
+
+  const releaseWakeLock = () => {
+    if (!wakeLock) return;
+
+    wakeLock.release();
+    setWakeLock(null);
+    setWakeLockStatus("Inactive");
+  };
+
+  const openTVModal = async () => {
+    await requestWakeLock();
+    setShowTVModal(true);
+  };
+
+  const closeTVModal = () => {
+    setShowTVModal(false);
+    releaseWakeLock();
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (
+        document.visibilityState ===
+          "visible" &&
+        showTVModal &&
+        !wakeLock
+      ) {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [showTVModal, wakeLock]);
 
   return (
-    <nav
-      className="
-        fixed
-        bottom-0
-        left-0
-        right-0
-        z-[1000]
-        w-full
-        border-t
-        border-black/10
-        bg-white/95
-        text-black
-        shadow-[0_-8px_30px_rgba(0,0,0,0.08)]
-        backdrop-blur-xl
-        dark:border-white/10
-        dark:bg-[#0b0b0d]/95
-        dark:text-white
-      "
-    >
-      <div
+    <>
+      {/* ================================
+          MOBILE BOTTOM NAVIGATION
+      ================================= */}
+      <nav
         className="
-          mx-auto
-          grid
-          h-[68px]
+          lg:hidden
+          fixed
+          bottom-0
+          left-0
+          right-0
+          z-40
+          h-[3.8rem]
           w-full
-          max-w-3xl
-          grid-cols-5
-          items-stretch
-          px-1
-          sm:h-[72px]
-          sm:px-2
+          flex
+          items-center
+          justify-around
+          bg-white
+          dark:bg-black
+          border-t
+          border-gray-200
+          dark:border-gray-800
+          shadow-[0_-2px_10px_rgba(0,0,0,0.08)]
+          dark:shadow-[0_-2px_10px_rgba(0,0,0,0.35)]
         "
       >
-        {navigation.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.path}
-            end={item.path === "/"}
-            className="group relative"
+        {/* HOME */}
+        <Link
+          to="/"
+          className="flex-1 h-full"
+        >
+          <div
+            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
+              location.pathname === "/"
+                ? "text-green-500 dark:text-green-400"
+                : "text-gray-600 dark:text-gray-300"
+            }`}
           >
-            {({ isActive }) => {
-              const Icon = isActive
-                ? item.activeIcon
-                : item.icon;
+            {location.pathname === "/" ? (
+              <GoHomeFill className="text-2xl" />
+            ) : (
+              <GoHome className="text-2xl" />
+            )}
 
-              return (
-                <div
-                  className={`
-                    relative
-                    flex
-                    h-full
-                    w-full
-                    flex-col
-                    items-center
-                    justify-center
-                    gap-0.5
-                    rounded-xl
-                    transition-all
-                    duration-200
-                    ${
-                      isActive
-                        ? "text-[#1DB954]"
-                        : "text-gray-600 dark:text-gray-400"
-                    }
-                  `}
-                >
-                  {/* ACTIVE TOP INDICATOR */}
+            <span>Home</span>
+          </div>
+        </Link>
 
-                  <span
-                    className={`
-                      absolute
-                      top-0
-                      h-[3px]
-                      w-8
-                      rounded-b-full
-                      bg-[#1DB954]
-                      transition-all
-                      duration-200
-                      ${
-                        isActive
-                          ? "scale-100 opacity-100"
-                          : "scale-50 opacity-0"
-                      }
-                    `}
-                  />
+        {/* PLAYLIST */}
+        <Link
+          to="/Playlist"
+          className="flex-1 h-full"
+        >
+          <div
+            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
+              location.pathname === "/Playlist"
+                ? "text-green-500 dark:text-green-400"
+                : "text-gray-600 dark:text-gray-300"
+            }`}
+          >
+            {location.pathname === "/Playlist" ? (
+              <RiFolderMusicFill className="text-2xl" />
+            ) : (
+              <RiFolderMusicLine className="text-2xl" />
+            )}
 
-                  {/* ICON BACKGROUND */}
+            <span>Playlist</span>
+          </div>
+        </Link>
 
-                  <span
-                    className={`
-                      flex
-                      h-9
-                      w-12
-                      items-center
-                      justify-center
-                      rounded-xl
-                      transition-all
-                      duration-200
-                      ${
-                        isActive
-                          ? "bg-[#1DB954]/10"
-                          : "group-hover:bg-black/5 dark:group-hover:bg-white/10"
-                      }
-                    `}
-                  >
-                    <Icon
-                      className={`
-                        text-[25px]
-                        transition-transform
-                        duration-200
-                        ${
-                          isActive
-                            ? "scale-110"
-                            : "scale-100"
-                        }
-                      `}
-                    />
-                  </span>
+        {/* FAVOURITE */}
+        <Link
+          to="/Favourite"
+          className="flex-1 h-full"
+        >
+          <div
+            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
+              location.pathname === "/Favourite"
+                ? "text-green-500 dark:text-green-400"
+                : "text-gray-600 dark:text-gray-300"
+            }`}
+          >
+            {location.pathname === "/Favourite" ? (
+              <IoHeartSharp className="text-2xl" />
+            ) : (
+              <IoHeartOutline className="text-2xl" />
+            )}
 
-                  {/* LABEL */}
+            <span>Favourite</span>
+          </div>
+        </Link>
 
-                  <span
-                    className="
-                      max-w-full
-                      truncate
-                      px-0.5
-                      text-[10px]
-                      font-medium
-                      leading-4
-                      sm:text-xs
-                    "
-                  >
-                    {item.name}
-                  </span>
-                </div>
-              );
-            }}
-          </NavLink>
-        ))}
-      </div>
+        {/* SPOTIFY */}
+        <Link
+          to="/spotify-import"
+          className="flex-1 h-full"
+          aria-label="Import Spotify tracks, albums and playlists"
+          title="Import Spotify tracks, albums and playlists"
+        >
+          <div
+            className={`h-full flex flex-col items-center justify-center text-xs transition-colors duration-200 ${
+              location.pathname === "/spotify-import"
+                ? "text-green-500 dark:text-green-400"
+                : "text-gray-600 dark:text-gray-300"
+            }`}
+          >
+            <FaSpotify className="text-2xl" />
+            <span>Spotify</span>
+          </div>
+        </Link>
 
-      {/* ANDROID / IOS SAFE AREA */}
+        {/* LIVE TV */}
+        <button
+          type="button"
+          onClick={openTVModal}
+          className="
+            flex-1
+            h-full
+            text-gray-600
+            dark:text-gray-300
+            transition-colors
+            duration-200
+          "
+          aria-label="Open Live TV"
+        >
+          <div
+            className="
+              h-full
+              flex
+              flex-col
+              items-center
+              justify-center
+              text-xs
+            "
+          >
+            <MdLiveTv className="text-2xl" />
 
-      <div className="h-[env(safe-area-inset-bottom)] bg-transparent" />
-    </nav>
+            <span>Live TV</span>
+
+            {wakeLockStatus === "Active" && (
+              <span className="text-[8px] text-green-500 dark:text-green-400">
+                Active
+              </span>
+            )}
+          </div>
+        </button>
+      </nav>
+
+      {/* ================================
+          LIVE TV MODAL
+      ================================= */}
+      {showTVModal && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-black/80
+            dark:bg-black/90
+          "
+        >
+          <div
+            className="
+              relative
+              w-full
+              h-full
+              max-w-4xl
+              max-h-[85vh]
+              bg-black
+              dark:bg-black
+            "
+          >
+            <button
+              type="button"
+              onClick={closeTVModal}
+              className="
+                absolute
+                -top-10
+                right-0
+                z-50
+                px-3
+                py-2
+                text-white
+                text-lg
+                hover:text-green-400
+                transition-colors
+                duration-200
+              "
+            >
+              × Close
+            </button>
+
+            <iframe
+              src="https://dreamplay.pages.dev/"
+              title="Dreamly5 Live TV"
+              className="w-full h-full border-none"
+              allowFullScreen
+              frameBorder="0"
+              scrolling="yes"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
