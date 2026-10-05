@@ -4,6 +4,7 @@ import {
 } from "react";
 
 import Navigator from "../components/Navigator";
+import Navbar from "../components/Navbar";
 
 import MusicContext from "../context/MusicContext";
 
@@ -408,6 +409,9 @@ const SpotifyImport = () => {
 
   return (
     <>
+      <Navbar />
+      <div className="flex flex-col mb-[12rem] gap-[2rem] ">
+        {/* Header */}
       <main
         className="
           min-h-screen
