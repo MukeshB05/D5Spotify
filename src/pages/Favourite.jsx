@@ -14,7 +14,19 @@ import Navbar from "../components/Navbar";
 import Navigator from "../components/Navigator";
 
 /* =========================================================
-   HELPERS
+   SAFE STRING
+========================================================= */
+
+const safeString = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value).trim();
+};
+
+/* =========================================================
+   IMAGE URL
 ========================================================= */
 
 const imageUrl = (image) => {
@@ -29,29 +41,29 @@ const imageUrl = (image) => {
             item?.link ||
             item?.src;
 
-      if (url) {
-        return url;
+      if (safeString(url)) {
+        return safeString(url);
       }
     }
   }
 
-  if (
-    typeof image === "string" &&
-    image.trim()
-  ) {
-    return image;
+  if (typeof image === "string") {
+    const value = image.trim();
+
+    if (value) {
+      return value;
+    }
   }
 
-  if (
-    image &&
-    typeof image === "object"
-  ) {
-    return (
+  if (image && typeof image === "object") {
+    const url =
       image.url ||
       image.link ||
-      image.src ||
-      "/Unknown.png"
-    );
+      image.src;
+
+    if (safeString(url)) {
+      return safeString(url);
+    }
   }
 
   return "/Unknown.png";
@@ -64,16 +76,21 @@ const imageUrl = (image) => {
 const artistNames = (artists) => {
   if (Array.isArray(artists?.primary)) {
     return artists.primary
-      .map((artist) => artist?.name)
+      .map((artist) =>
+        typeof artist === "string"
+          ? artist
+          : artist?.name
+      )
       .filter(Boolean)
       .join(", ");
   }
 
   if (Array.isArray(artists)) {
     return artists
-      .map(
-        (artist) =>
-          artist?.name || artist
+      .map((artist) =>
+        typeof artist === "string"
+          ? artist
+          : artist?.name
       )
       .filter(Boolean)
       .join(", ");
@@ -81,6 +98,10 @@ const artistNames = (artists) => {
 
   if (typeof artists === "string") {
     return artists;
+  }
+
+  if (artists?.name) {
+    return artists.name;
   }
 
   return "";
@@ -92,12 +113,16 @@ const artistNames = (artists) => {
 
 const readArray = (key) => {
   try {
-    const value = JSON.parse(
-      localStorage.getItem(key) || "[]"
-    );
+    const raw = localStorage.getItem(key);
 
-    return Array.isArray(value)
-      ? value
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+
+    return Array.isArray(parsed)
+      ? parsed
       : [];
   } catch (error) {
     console.error(
@@ -110,20 +135,80 @@ const readArray = (key) => {
 };
 
 /* =========================================================
-   SPOTIFY URL HELPER
+   SPOTIFY URL NORMALIZER
 
    Supports:
 
-   spotifyUrl
-   spotify_url
-   spotifyLink
-   spotify_link
-   external_urls.spotify
-   externalUrls.spotify
-   spotifyUri
-   spotify_uri
-   spotify://playlist/ID
+   https://open.spotify.com/playlist/...
+   http://open.spotify.com/playlist/...
    spotify:playlist:ID
+   spotify://playlist/ID
+========================================================= */
+
+const normalizeSpotifyUrl = (value) => {
+  const cleanValue = safeString(value);
+
+  if (!cleanValue) {
+    return "";
+  }
+
+  /* Already Spotify web URL */
+  if (
+    cleanValue.startsWith(
+      "https://open.spotify.com/"
+    ) ||
+    cleanValue.startsWith(
+      "http://open.spotify.com/"
+    )
+  ) {
+    return cleanValue;
+  }
+
+  /* spotify:playlist:ID */
+  if (cleanValue.startsWith("spotify:")) {
+    const parts = cleanValue.split(":");
+
+    if (
+      parts.length >= 3 &&
+      parts[1] &&
+      parts[2]
+    ) {
+      const type = parts[1].trim();
+      const id = parts[2].trim();
+
+      if (type && id) {
+        return `https://open.spotify.com/${type}/${id}`;
+      }
+    }
+  }
+
+  /* spotify://playlist/ID */
+  if (cleanValue.startsWith("spotify://")) {
+    const valueWithoutScheme =
+      cleanValue.replace(
+        "spotify://",
+        ""
+      );
+
+    const parts =
+      valueWithoutScheme.split("/");
+
+    if (
+      parts.length >= 2 &&
+      parts[0] &&
+      parts[1]
+    ) {
+      return `https://open.spotify.com/${parts[0]}/${parts[1]}`;
+    }
+  }
+
+  return "";
+};
+
+/* =========================================================
+   SPOTIFY URL
+
+   Checks many possible API/import formats.
 ========================================================= */
 
 const getSpotifyUrl = (item) => {
@@ -132,72 +217,38 @@ const getSpotifyUrl = (item) => {
   }
 
   const possibleUrls = [
+    /* Direct */
     item.spotifyUrl,
     item.spotify_url,
     item.spotifyLink,
     item.spotify_link,
+
+    /* Standard Spotify */
+    item.uri,
+
+    /* Spotify external URLs */
     item.external_urls?.spotify,
     item.externalUrls?.spotify,
-    item.spotify?.external_urls?.spotify,
+
+    /* Nested spotify object */
     item.spotify?.url,
+    item.spotify?.uri,
+    item.spotify?.spotifyUrl,
+    item.spotify?.spotify_url,
+    item.spotify?.external_urls?.spotify,
+    item.spotify?.externalUrls?.spotify,
+
+    /* Nested links */
+    item.links?.spotify,
+    item.urls?.spotify,
   ];
 
   for (const value of possibleUrls) {
-    if (
-      typeof value === "string" &&
-      value.trim()
-    ) {
-      const cleanValue = value.trim();
+    const normalized =
+      normalizeSpotifyUrl(value);
 
-      if (
-        cleanValue.startsWith(
-          "https://open.spotify.com/"
-        ) ||
-        cleanValue.startsWith(
-          "http://open.spotify.com/"
-        )
-      ) {
-        return cleanValue;
-      }
-
-      /* Spotify URI */
-      if (
-        cleanValue.startsWith(
-          "spotify:"
-        )
-      ) {
-        const parts =
-          cleanValue.split(":");
-
-        if (
-          parts.length >= 3 &&
-          parts[1] &&
-          parts[2]
-        ) {
-          return `https://open.spotify.com/${parts[1]}/${parts[2]}`;
-        }
-      }
-    }
-  }
-
-  /* Some APIs store spotify URI separately */
-  const spotifyUri =
-    item.spotifyUri ||
-    item.spotify_uri;
-
-  if (
-    typeof spotifyUri === "string" &&
-    spotifyUri.startsWith("spotify:")
-  ) {
-    const parts =
-      spotifyUri.split(":");
-
-    if (
-      parts.length >= 3 &&
-      parts[1] &&
-      parts[2]
-    ) {
-      return `https://open.spotify.com/${parts[1]}/${parts[2]}`;
+    if (normalized) {
+      return normalized;
     }
   }
 
@@ -213,19 +264,66 @@ const getSpotifyType = (item) => {
     return "";
   }
 
-  if (
-    typeof item.type === "string"
-  ) {
-    return item.type.toLowerCase();
+  const typeValues = [
+    item.type,
+    item.spotifyType,
+    item.spotify_type,
+    item.spotify?.type,
+  ];
+
+  for (const value of typeValues) {
+    const type = safeString(value).toLowerCase();
+
+    if (type) {
+      return type;
+    }
   }
 
-  if (
-    typeof item.spotifyType === "string"
-  ) {
-    return item.spotifyType.toLowerCase();
+  /* Detect from Spotify URL */
+  const spotifyUrl =
+    getSpotifyUrl(item);
+
+  if (spotifyUrl) {
+    const match =
+      spotifyUrl.match(
+        /open\.spotify\.com\/([^/?#]+)\/([^/?#]+)/i
+      );
+
+    if (match?.[1]) {
+      return match[1].toLowerCase();
+    }
   }
 
   return "";
+};
+
+/* =========================================================
+   ITEM UNIQUE KEY
+
+   Used for React keys and removing imported items.
+========================================================= */
+
+const getItemKey = (item, fallback = "") => {
+  if (!item || typeof item !== "object") {
+    return fallback;
+  }
+
+  if (
+    item.id !== undefined &&
+    item.id !== null &&
+    safeString(item.id)
+  ) {
+    return String(item.id);
+  }
+
+  const spotifyUrl =
+    getSpotifyUrl(item);
+
+  if (spotifyUrl) {
+    return spotifyUrl;
+  }
+
+  return fallback;
 };
 
 /* =========================================================
@@ -236,16 +334,24 @@ const Favourite = () => {
   const musicContext =
     useContext(MusicContext) || {};
 
-  const { playMusic } = musicContext;
+  const {
+    playMusic,
+  } = musicContext;
 
-  const [likedSongs, setLikedSongs] =
-    useState([]);
+  const [
+    likedSongs,
+    setLikedSongs,
+  ] = useState([]);
 
-  const [likedAlbums, setLikedAlbums] =
-    useState([]);
+  const [
+    likedAlbums,
+    setLikedAlbums,
+  ] = useState([]);
 
-  const [likedPlaylists, setLikedPlaylists] =
-    useState([]);
+  const [
+    likedPlaylists,
+    setLikedPlaylists,
+  ] = useState([]);
 
   /* =======================================================
      LOAD FAVOURITES
@@ -266,56 +372,98 @@ const Favourite = () => {
   }, []);
 
   /* =======================================================
-     LISTEN FOR FAVOURITE UPDATES
+     INITIAL LOAD + EVENTS
   ======================================================= */
 
   useEffect(() => {
     loadFavourites();
 
-    const update = () => {
+    const updateFavourites = () => {
       loadFavourites();
     };
 
     window.addEventListener(
       "storage",
-      update
+      updateFavourites
     );
 
     window.addEventListener(
       "favouritesUpdated",
-      update
+      updateFavourites
     );
 
     return () => {
       window.removeEventListener(
         "storage",
-        update
+        updateFavourites
       );
 
       window.removeEventListener(
         "favouritesUpdated",
-        update
+        updateFavourites
       );
     };
   }, [loadFavourites]);
 
   /* =======================================================
      REMOVE FAVOURITE
+
+     Supports normal IDs and Spotify URLs.
   ======================================================= */
 
   const removeItem = useCallback(
-    (key, id) => {
-      if (id == null) {
+    (key, item) => {
+      if (!item) {
         return;
       }
 
-      const current = readArray(key);
+      const current =
+        readArray(key);
 
-      const updated = current.filter(
-        (item) =>
-          String(item?.id) !==
-          String(id)
-      );
+      const itemId =
+        safeString(item?.id);
+
+      const itemSpotifyUrl =
+        getSpotifyUrl(item);
+
+      const updated =
+        current.filter(
+          (storedItem) => {
+            const storedId =
+              safeString(
+                storedItem?.id
+              );
+
+            const storedSpotifyUrl =
+              getSpotifyUrl(
+                storedItem
+              );
+
+            /* Match ID */
+            if (
+              itemId &&
+              storedId
+            ) {
+              return (
+                storedId !==
+                itemId
+              );
+            }
+
+            /* Match Spotify URL */
+            if (
+              itemSpotifyUrl &&
+              storedSpotifyUrl
+            ) {
+              return (
+                storedSpotifyUrl !==
+                itemSpotifyUrl
+              );
+            }
+
+            return true;
+          }
+        );
 
       localStorage.setItem(
         key,
@@ -325,32 +473,56 @@ const Favourite = () => {
       loadFavourites();
 
       window.dispatchEvent(
-        new Event("favouritesUpdated")
+        new Event(
+          "favouritesUpdated"
+        )
       );
     },
     [loadFavourites]
   );
 
-  const removeSong = (id) => {
-    removeItem(
-      "likedSongs",
-      id
-    );
-  };
+  /* =======================================================
+     REMOVE SONG
+  ======================================================= */
 
-  const removeAlbum = (id) => {
-    removeItem(
-      "likedAlbums",
-      id
-    );
-  };
+  const removeSong = useCallback(
+    (song) => {
+      removeItem(
+        "likedSongs",
+        song
+      );
+    },
+    [removeItem]
+  );
 
-  const removePlaylist = (id) => {
-    removeItem(
-      "likedPlaylists",
-      id
+  /* =======================================================
+     REMOVE ALBUM
+  ======================================================= */
+
+  const removeAlbum = useCallback(
+    (album) => {
+      removeItem(
+        "likedAlbums",
+        album
+      );
+    },
+    [removeItem]
+  );
+
+  /* =======================================================
+     REMOVE PLAYLIST
+  ======================================================= */
+
+  const removePlaylist =
+    useCallback(
+      (playlist) => {
+        removeItem(
+          "likedPlaylists",
+          playlist
+        );
+      },
+      [removeItem]
     );
-  };
 
   /* =======================================================
      PLAY FAVOURITE SONG
@@ -370,7 +542,10 @@ const Favourite = () => {
         const queue =
           likedSongs.filter(
             (item) =>
-              item?.id != null
+              item &&
+              item.id !==
+                undefined &&
+              item.id !== null
           );
 
         playMusic(
@@ -380,7 +555,10 @@ const Favourite = () => {
             : undefined
         );
       },
-      [likedSongs, playMusic]
+      [
+        likedSongs,
+        playMusic,
+      ]
     );
 
   /* =======================================================
@@ -455,7 +633,6 @@ const Favourite = () => {
                     text-2xl
                     sm:text-3xl
                     font-bold
-
                     text-[var(--text-primary,#111111)]
                   "
                 >
@@ -466,7 +643,6 @@ const Favourite = () => {
                   className="
                     mt-1
                     text-sm
-
                     text-[var(--text-secondary,#777777)]
                   "
                 >
@@ -480,14 +656,10 @@ const Favourite = () => {
                   className="
                     shrink-0
                     rounded-full
-
                     bg-[var(--secondary-bg,#f3f3f3)]
-
                     px-3
                     py-1
-
                     text-xs
-
                     text-[var(--text-secondary,#666666)]
                   "
                 >
@@ -508,15 +680,12 @@ const Favourite = () => {
             <div
               className="
                 min-h-[55vh]
-
                 flex
                 flex-col
                 items-center
                 justify-center
-
                 px-4
                 pb-8
-
                 text-center
               "
             >
@@ -525,7 +694,6 @@ const Favourite = () => {
                   mb-5
                   text-[5rem]
                   leading-none
-
                   text-[var(--text-secondary,#777777)]
                 "
                 aria-hidden="true"
@@ -538,7 +706,6 @@ const Favourite = () => {
                   text-xl
                   sm:text-2xl
                   font-semibold
-
                   text-[var(--text-primary,#111111)]
                 "
               >
@@ -549,10 +716,8 @@ const Favourite = () => {
                 className="
                   mt-3
                   max-w-md
-
                   text-sm
                   sm:text-base
-
                   text-[var(--text-secondary,#777777)]
                 "
               >
@@ -581,7 +746,6 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
-
                     text-[var(--text-primary,#111111)]
                   "
                 >
@@ -591,14 +755,10 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
-
                     bg-[var(--secondary-bg,#f3f3f3)]
-
                     px-2.5
                     py-1
-
                     text-xs
-
                     text-[var(--text-secondary,#666666)]
                   "
                 >
@@ -611,119 +771,107 @@ const Favourite = () => {
                   w-full
                   overflow-hidden
                   rounded-xl
-
                   border
                   border-[var(--card-border,#e5e5e5)]
-
                   bg-[var(--card-bg,#ffffff)]
-
                   transition-colors
                   duration-200
                 "
               >
                 {likedSongs.map(
-                  (song, index) => (
-                    <div
-                      key={
-                        song?.id ??
-                        `song-${index}`
-                      }
-                      className="
-                        relative
-                        flex
-                        items-center
+                  (song, index) => {
+                    const spotifyUrl =
+                      getSpotifyUrl(song);
 
-                        border-b
-                        border-[var(--card-border,#e5e5e5)]
-
-                        last:border-b-0
-                      "
-                    >
+                    return (
                       <div
+                        key={getItemKey(
+                          song,
+                          `song-${index}`
+                        )}
                         className="
-                          min-w-0
-                          flex-1
+                          relative
+                          flex
+                          items-center
+                          border-b
+                          border-[var(--card-border,#e5e5e5)]
+                          last:border-b-0
                         "
                       >
-                        <SongsList
-                          {...song}
-                          song={song}
-                          songs={likedSongs}
-                          onPlay={
-                            playFavouriteSong
-                          }
-                        />
-                      </div>
-
-                      {/* Spotify SONG */}
-                      {getSpotifyUrl(song) && (
-                        <a
-                          href={getSpotifyUrl(
-                            song
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <div
                           className="
-                            mr-1
+                            min-w-0
+                            flex-1
+                          "
+                        >
+                          <SongsList
+                            {...song}
+                            song={song}
+                            songs={likedSongs}
+                            onPlay={
+                              playFavouriteSong
+                            }
+                          />
+                        </div>
 
+                        {/* SPOTIFY SONG */}
+
+                        {spotifyUrl && (
+                          <a
+                            href={spotifyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="
+                              mr-1
+                              flex
+                              h-9
+                              w-9
+                              shrink-0
+                              items-center
+                              justify-center
+                              rounded-full
+                              text-[#1DB954]
+                              hover:bg-[#1DB954]/10
+                              active:bg-[#1DB954]/20
+                            "
+                            title="Open in Spotify"
+                            aria-label="Open song in Spotify"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                            }}
+                          >
+                            <FaSpotify className="text-xl" />
+                          </a>
+                        )}
+
+                        {/* REMOVE SONG */}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeSong(song)
+                          }
+                          className="
+                            mr-2
                             flex
-                            h-9
-                            w-9
+                            h-8
+                            w-8
                             shrink-0
-
                             items-center
                             justify-center
-
                             rounded-full
-
-                            text-[#1DB954]
-
-                            hover:bg-[#1DB954]/10
-                            active:bg-[#1DB954]/20
+                            text-red-500
+                            hover:bg-red-500/10
+                            active:bg-red-500/20
                           "
-                          title="Open in Spotify"
-                          aria-label="Open song in Spotify"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                          }}
+                          title="Remove from Favourite"
+                          aria-label="Remove song from Favourite"
                         >
-                          <FaSpotify className="text-xl" />
-                        </a>
-                      )}
-
-                      {/* REMOVE SONG */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeSong(
-                            song?.id
-                          )
-                        }
-                        className="
-                          mr-2
-
-                          flex
-                          h-8
-                          w-8
-                          shrink-0
-
-                          items-center
-                          justify-center
-
-                          rounded-full
-
-                          text-red-500
-
-                          hover:bg-red-500/10
-                          active:bg-red-500/20
-                        "
-                        title="Remove from Favourite"
-                        aria-label="Remove song from Favourite"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )
+                          ×
+                        </button>
+                      </div>
+                    );
+                  }
                 )}
               </div>
             </section>
@@ -747,7 +895,6 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
-
                     text-[var(--text-primary,#111111)]
                   "
                 >
@@ -757,14 +904,10 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
-
                     bg-[var(--secondary-bg,#f3f3f3)]
-
                     px-2.5
                     py-1
-
                     text-xs
-
                     text-[var(--text-secondary,#666666)]
                   "
                 >
@@ -777,7 +920,6 @@ const Favourite = () => {
                   grid
                   grid-cols-2
                   gap-4
-
                   sm:grid-cols-3
                   md:grid-cols-4
                   lg:grid-cols-5
@@ -787,7 +929,9 @@ const Favourite = () => {
                 {likedAlbums.map(
                   (album, index) => {
                     const spotifyUrl =
-                      getSpotifyUrl(album);
+                      getSpotifyUrl(
+                        album
+                      );
 
                     const content = (
                       <>
@@ -797,7 +941,6 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
-
                             bg-[var(--secondary-bg,#f3f3f3)]
                           "
                         >
@@ -813,10 +956,8 @@ const Favourite = () => {
                               h-full
                               w-full
                               object-cover
-
                               transition
                               duration-300
-
                               group-hover:scale-105
                             "
                             loading="lazy"
@@ -837,14 +978,10 @@ const Favourite = () => {
                                 absolute
                                 right-2
                                 top-2
-
                                 rounded-full
-
                                 bg-[#1DB954]
-
                                 px-2
                                 py-1
-
                                 text-[10px]
                                 font-bold
                                 text-black
@@ -859,10 +996,8 @@ const Favourite = () => {
                           <div
                             className="
                               truncate
-
                               text-sm
                               font-semibold
-
                               text-[var(--text-primary,#111111)]
                             "
                           >
@@ -875,7 +1010,6 @@ const Favourite = () => {
                               mt-1
                               truncate
                               text-xs
-
                               text-[var(--text-secondary,#777777)]
                             "
                           >
@@ -890,22 +1024,28 @@ const Favourite = () => {
 
                     return (
                       <div
-                        key={
-                          album?.id ??
+                        key={getItemKey(
+                          album,
                           `album-${index}`
-                        }
-                        className="group relative"
+                        )}
+                        className="
+                          group
+                          relative
+                        "
                       >
-                        {/* ALWAYS REDIRECT TO SPOTIFY
-                            WHEN SPOTIFY URL EXISTS */}
+                        {/* SPOTIFY ALBUM */}
 
                         {spotifyUrl ? (
                           <a
                             href={spotifyUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block"
+                            className="
+                              block
+                              cursor-pointer
+                            "
                             title="Open album in Spotify"
+                            aria-label="Open album in Spotify"
                           >
                             {content}
                           </a>
@@ -913,6 +1053,7 @@ const Favourite = () => {
                           <Link
                             to={`/albums/${album.id}`}
                             className="block"
+                            title="Open album"
                           >
                             {content}
                           </Link>
@@ -922,34 +1063,34 @@ const Favourite = () => {
                           </div>
                         )}
 
+                        {/* REMOVE ALBUM */}
+
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+
                             removeAlbum(
-                              album?.id
-                            )
-                          }
+                              album
+                            );
+                          }}
                           className="
                             absolute
                             left-2
                             top-2
-
+                            z-20
                             flex
                             h-8
                             w-8
-
                             items-center
                             justify-center
-
                             rounded-full
-
                             bg-black/70
                             text-white
-
                             opacity-100
                             sm:opacity-0
                             sm:group-hover:opacity-100
-
                             transition
                           "
                           aria-label="Remove album from Favourite"
@@ -983,7 +1124,6 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
-
                     text-[var(--text-primary,#111111)]
                   "
                 >
@@ -993,14 +1133,10 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
-
                     bg-[var(--secondary-bg,#f3f3f3)]
-
                     px-2.5
                     py-1
-
                     text-xs
-
                     text-[var(--text-secondary,#666666)]
                   "
                 >
@@ -1013,7 +1149,6 @@ const Favourite = () => {
                   grid
                   grid-cols-2
                   gap-4
-
                   sm:grid-cols-3
                   md:grid-cols-4
                   lg:grid-cols-5
@@ -1040,7 +1175,6 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
-
                             bg-[var(--secondary-bg,#f3f3f3)]
                           "
                         >
@@ -1056,10 +1190,8 @@ const Favourite = () => {
                               h-full
                               w-full
                               object-cover
-
                               transition
                               duration-300
-
                               group-hover:scale-105
                             "
                             loading="lazy"
@@ -1080,18 +1212,13 @@ const Favourite = () => {
                                 absolute
                                 right-2
                                 top-2
-
                                 flex
                                 items-center
                                 gap-1
-
                                 rounded-full
-
                                 bg-[#1DB954]
-
                                 px-2
                                 py-1
-
                                 text-[10px]
                                 font-bold
                                 text-black
@@ -1107,10 +1234,8 @@ const Favourite = () => {
                           <div
                             className="
                               truncate
-
                               text-sm
                               font-semibold
-
                               text-[var(--text-primary,#111111)]
                             "
                           >
@@ -1123,7 +1248,6 @@ const Favourite = () => {
                               mt-1
                               truncate
                               text-xs
-
                               text-[var(--text-secondary,#777777)]
                             "
                           >
@@ -1139,20 +1263,17 @@ const Favourite = () => {
 
                     return (
                       <div
-                        key={
-                          playlist?.id ??
+                        key={getItemKey(
+                          playlist,
                           `playlist-${index}`
-                        }
-                        className="group relative"
+                        )}
+                        className="
+                          group
+                          relative
+                        "
                       >
                         {/* =================================================
                             SPOTIFY PLAYLIST REDIRECT
-
-                            If Spotify URL exists:
-                            -> open Spotify
-
-                            Otherwise:
-                            -> open local playlist
                         ================================================= */}
 
                         {spotifyUrl ? (
@@ -1195,30 +1316,25 @@ const Favourite = () => {
                             event.stopPropagation();
 
                             removePlaylist(
-                              playlist?.id
+                              playlist
                             );
                           }}
                           className="
                             absolute
                             left-2
                             top-2
-
+                            z-20
                             flex
                             h-8
                             w-8
-
                             items-center
                             justify-center
-
                             rounded-full
-
                             bg-black/70
                             text-white
-
                             opacity-100
                             sm:opacity-0
                             sm:group-hover:opacity-100
-
                             transition
                           "
                           aria-label="Remove playlist from Favourite"
