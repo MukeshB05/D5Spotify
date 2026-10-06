@@ -594,12 +594,13 @@ const Favourite = () => {
           pb-[7rem]
           lg:pb-10
 
-          bg-[var(--background,#ffffff)]
-          text-[var(--text-primary,#111111)]
-
           transition-colors
-          duration-200
+          duration-300
         "
+        style={{
+          backgroundColor: "var(--background, #ffffff)",
+          color: "var(--text-primary, #111111)",
+        }}
       >
         <div
           className="
@@ -633,8 +634,10 @@ const Favourite = () => {
                     text-2xl
                     sm:text-3xl
                     font-bold
-                    text-[var(--text-primary,#111111)]
                   "
+                  style={{
+                    color: "var(--text-primary, #111111)",
+                  }}
                 >
                   Favourite
                 </h1>
@@ -643,8 +646,10 @@ const Favourite = () => {
                   className="
                     mt-1
                     text-sm
-                    text-[var(--text-secondary,#777777)]
                   "
+                  style={{
+                    color: "var(--text-secondary, #777777)",
+                  }}
                 >
                   Your favourite songs,
                   albums and playlists
@@ -656,12 +661,14 @@ const Favourite = () => {
                   className="
                     shrink-0
                     rounded-full
-                    bg-[var(--secondary-bg,#f3f3f3)]
                     px-3
                     py-1
                     text-xs
-                    text-[var(--text-secondary,#666666)]
                   "
+                  style={{
+                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
+                    color: "var(--text-secondary, #666666)",
+                  }}
                 >
                   {total} item
                   {total === 1
@@ -694,8 +701,10 @@ const Favourite = () => {
                   mb-5
                   text-[5rem]
                   leading-none
-                  text-[var(--text-secondary,#777777)]
                 "
+                style={{
+                  color: "var(--text-secondary, #777777)",
+                }}
                 aria-hidden="true"
               >
                 ♡
@@ -706,8 +715,10 @@ const Favourite = () => {
                   text-xl
                   sm:text-2xl
                   font-semibold
-                  text-[var(--text-primary,#111111)]
                 "
+                style={{
+                  color: "var(--text-primary, #111111)",
+                }}
               >
                 No Favourite Items
               </h2>
@@ -718,8 +729,10 @@ const Favourite = () => {
                   max-w-md
                   text-sm
                   sm:text-base
-                  text-[var(--text-secondary,#777777)]
                 "
+                style={{
+                  color: "var(--text-secondary, #777777)",
+                }}
               >
                 Import from Spotify or
                 like songs, albums and
@@ -746,8 +759,10 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
-                    text-[var(--text-primary,#111111)]
                   "
+                  style={{
+                    color: "var(--text-primary, #111111)",
+                  }}
                 >
                   Songs
                 </h2>
@@ -755,12 +770,14 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
-                    bg-[var(--secondary-bg,#f3f3f3)]
                     px-2.5
                     py-1
                     text-xs
-                    text-[var(--text-secondary,#666666)]
                   "
+                  style={{
+                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
+                    color: "var(--text-secondary, #666666)",
+                  }}
                 >
                   {likedSongs.length}
                 </span>
@@ -772,11 +789,13 @@ const Favourite = () => {
                   overflow-hidden
                   rounded-xl
                   border
-                  border-[var(--card-border,#e5e5e5)]
-                  bg-[var(--card-bg,#ffffff)]
                   transition-colors
-                  duration-200
+                  duration-300
                 "
+                style={{
+                  backgroundColor: "var(--card-bg, #ffffff)",
+                  borderColor: "var(--card-border, #e5e5e5)",
+                }}
               >
                 {likedSongs.map(
                   (song, index) => {
@@ -794,9 +813,14 @@ const Favourite = () => {
                           flex
                           items-center
                           border-b
-                          border-[var(--card-border,#e5e5e5)]
                           last:border-b-0
+                          transition-colors
+                          duration-300
                         "
+                        style={{
+                          borderColor:
+                            "var(--card-border, #e5e5e5)",
+                        }}
                       >
                         <div
                           className="
@@ -833,6 +857,7 @@ const Favourite = () => {
                               text-[#1DB954]
                               hover:bg-[#1DB954]/10
                               active:bg-[#1DB954]/20
+                              transition-colors
                             "
                             title="Open in Spotify"
                             aria-label="Open song in Spotify"
@@ -863,6 +888,7 @@ const Favourite = () => {
                             text-red-500
                             hover:bg-red-500/10
                             active:bg-red-500/20
+                            transition-colors
                           "
                           title="Remove from Favourite"
                           aria-label="Remove song from Favourite"
@@ -895,8 +921,10 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
-                    text-[var(--text-primary,#111111)]
                   "
+                  style={{
+                    color: "var(--text-primary, #111111)",
+                  }}
                 >
                   Albums
                 </h2>
@@ -904,12 +932,14 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
-                    bg-[var(--secondary-bg,#f3f3f3)]
                     px-2.5
                     py-1
                     text-xs
-                    text-[var(--text-secondary,#666666)]
                   "
+                  style={{
+                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
+                    color: "var(--text-secondary, #666666)",
+                  }}
                 >
                   {likedAlbums.length}
                 </span>
@@ -941,8 +971,11 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
-                            bg-[var(--secondary-bg,#f3f3f3)]
                           "
+                          style={{
+                            backgroundColor:
+                              "var(--secondary-bg, #f3f3f3)",
+                          }}
                         >
                           <img
                             src={imageUrl(
@@ -998,8 +1031,11 @@ const Favourite = () => {
                               truncate
                               text-sm
                               font-semibold
-                              text-[var(--text-primary,#111111)]
                             "
+                            style={{
+                              color:
+                                "var(--text-primary, #111111)",
+                            }}
                           >
                             {album?.name ||
                               "Unknown Album"}
@@ -1010,8 +1046,11 @@ const Favourite = () => {
                               mt-1
                               truncate
                               text-xs
-                              text-[var(--text-secondary,#777777)]
                             "
+                            style={{
+                              color:
+                                "var(--text-secondary, #777777)",
+                            }}
                           >
                             {artistNames(
                               album?.artists
@@ -1124,8 +1163,10 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
-                    text-[var(--text-primary,#111111)]
                   "
+                  style={{
+                    color: "var(--text-primary, #111111)",
+                  }}
                 >
                   Playlists
                 </h2>
@@ -1133,12 +1174,14 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
-                    bg-[var(--secondary-bg,#f3f3f3)]
                     px-2.5
                     py-1
                     text-xs
-                    text-[var(--text-secondary,#666666)]
                   "
+                  style={{
+                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
+                    color: "var(--text-secondary, #666666)",
+                  }}
                 >
                   {likedPlaylists.length}
                 </span>
@@ -1175,8 +1218,11 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
-                            bg-[var(--secondary-bg,#f3f3f3)]
                           "
+                          style={{
+                            backgroundColor:
+                              "var(--secondary-bg, #f3f3f3)",
+                          }}
                         >
                           <img
                             src={imageUrl(
@@ -1236,8 +1282,11 @@ const Favourite = () => {
                               truncate
                               text-sm
                               font-semibold
-                              text-[var(--text-primary,#111111)]
                             "
+                            style={{
+                              color:
+                                "var(--text-primary, #111111)",
+                            }}
                           >
                             {playlist?.name ||
                               "Unknown Playlist"}
@@ -1248,8 +1297,11 @@ const Favourite = () => {
                               mt-1
                               truncate
                               text-xs
-                              text-[var(--text-secondary,#777777)]
                             "
+                            style={{
+                              color:
+                                "var(--text-secondary, #777777)",
+                            }}
                           >
                             {spotifyUrl ||
                             spotifyType ===
