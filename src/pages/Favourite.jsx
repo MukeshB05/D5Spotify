@@ -14,7 +14,7 @@ import Navbar from "../components/Navbar";
 import Navigator from "../components/Navigator";
 
 /* =========================================================
-   SAFE STRING
+   HELPERS
 ========================================================= */
 
 const safeString = (value) => {
@@ -113,13 +113,13 @@ const artistNames = (artists) => {
 
 const readArray = (key) => {
   try {
-    const raw = localStorage.getItem(key);
+    const value = localStorage.getItem(key);
 
-    if (!raw) {
+    if (!value) {
       return [];
     }
 
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(value);
 
     return Array.isArray(parsed)
       ? parsed
@@ -136,13 +136,6 @@ const readArray = (key) => {
 
 /* =========================================================
    SPOTIFY URL NORMALIZER
-
-   Supports:
-
-   https://open.spotify.com/playlist/...
-   http://open.spotify.com/playlist/...
-   spotify:playlist:ID
-   spotify://playlist/ID
 ========================================================= */
 
 const normalizeSpotifyUrl = (value) => {
@@ -152,7 +145,8 @@ const normalizeSpotifyUrl = (value) => {
     return "";
   }
 
-  /* Already Spotify web URL */
+  /* Normal Spotify URL */
+
   if (
     cleanValue.startsWith(
       "https://open.spotify.com/"
@@ -165,16 +159,25 @@ const normalizeSpotifyUrl = (value) => {
   }
 
   /* spotify:playlist:ID */
-  if (cleanValue.startsWith("spotify:")) {
-    const parts = cleanValue.split(":");
+
+  if (
+    cleanValue.startsWith(
+      "spotify:"
+    )
+  ) {
+    const parts =
+      cleanValue.split(":");
 
     if (
       parts.length >= 3 &&
       parts[1] &&
       parts[2]
     ) {
-      const type = parts[1].trim();
-      const id = parts[2].trim();
+      const type =
+        parts[1].trim();
+
+      const id =
+        parts[2].trim();
 
       if (type && id) {
         return `https://open.spotify.com/${type}/${id}`;
@@ -183,15 +186,20 @@ const normalizeSpotifyUrl = (value) => {
   }
 
   /* spotify://playlist/ID */
-  if (cleanValue.startsWith("spotify://")) {
-    const valueWithoutScheme =
+
+  if (
+    cleanValue.startsWith(
+      "spotify://"
+    )
+  ) {
+    const withoutScheme =
       cleanValue.replace(
         "spotify://",
         ""
       );
 
     const parts =
-      valueWithoutScheme.split("/");
+      withoutScheme.split("/");
 
     if (
       parts.length >= 2 &&
@@ -206,9 +214,7 @@ const normalizeSpotifyUrl = (value) => {
 };
 
 /* =========================================================
-   SPOTIFY URL
-
-   Checks many possible API/import formats.
+   GET SPOTIFY URL
 ========================================================= */
 
 const getSpotifyUrl = (item) => {
@@ -217,38 +223,34 @@ const getSpotifyUrl = (item) => {
   }
 
   const possibleUrls = [
-    /* Direct */
     item.spotifyUrl,
     item.spotify_url,
     item.spotifyLink,
     item.spotify_link,
 
-    /* Standard Spotify */
     item.uri,
 
-    /* Spotify external URLs */
     item.external_urls?.spotify,
     item.externalUrls?.spotify,
 
-    /* Nested spotify object */
     item.spotify?.url,
     item.spotify?.uri,
     item.spotify?.spotifyUrl,
     item.spotify?.spotify_url,
+
     item.spotify?.external_urls?.spotify,
     item.spotify?.externalUrls?.spotify,
 
-    /* Nested links */
     item.links?.spotify,
     item.urls?.spotify,
   ];
 
   for (const value of possibleUrls) {
-    const normalized =
+    const url =
       normalizeSpotifyUrl(value);
 
-    if (normalized) {
-      return normalized;
+    if (url) {
+      return url;
     }
   }
 
@@ -264,29 +266,29 @@ const getSpotifyType = (item) => {
     return "";
   }
 
-  const typeValues = [
+  const values = [
     item.type,
     item.spotifyType,
     item.spotify_type,
     item.spotify?.type,
   ];
 
-  for (const value of typeValues) {
-    const type = safeString(value).toLowerCase();
+  for (const value of values) {
+    const type =
+      safeString(value).toLowerCase();
 
     if (type) {
       return type;
     }
   }
 
-  /* Detect from Spotify URL */
   const spotifyUrl =
     getSpotifyUrl(item);
 
   if (spotifyUrl) {
     const match =
       spotifyUrl.match(
-        /open\.spotify\.com\/([^/?#]+)\/([^/?#]+)/i
+        /open\.spotify\.com\/([^/?#]+)/i
       );
 
     if (match?.[1]) {
@@ -298,12 +300,13 @@ const getSpotifyType = (item) => {
 };
 
 /* =========================================================
-   ITEM UNIQUE KEY
-
-   Used for React keys and removing imported items.
+   UNIQUE ITEM KEY
 ========================================================= */
 
-const getItemKey = (item, fallback = "") => {
+const getItemKey = (
+  item,
+  fallback
+) => {
   if (!item || typeof item !== "object") {
     return fallback;
   }
@@ -327,7 +330,7 @@ const getItemKey = (item, fallback = "") => {
 };
 
 /* =========================================================
-   FAVOURITE COMPONENT
+   FAVOURITE
 ========================================================= */
 
 const Favourite = () => {
@@ -354,7 +357,7 @@ const Favourite = () => {
   ] = useState([]);
 
   /* =======================================================
-     LOAD FAVOURITES
+     LOAD
   ======================================================= */
 
   const loadFavourites = useCallback(() => {
@@ -372,53 +375,51 @@ const Favourite = () => {
   }, []);
 
   /* =======================================================
-     INITIAL LOAD + EVENTS
+     LISTEN FOR CHANGES
   ======================================================= */
 
   useEffect(() => {
     loadFavourites();
 
-    const updateFavourites = () => {
+    const update = () => {
       loadFavourites();
     };
 
     window.addEventListener(
       "storage",
-      updateFavourites
+      update
     );
 
     window.addEventListener(
       "favouritesUpdated",
-      updateFavourites
+      update
     );
 
     return () => {
       window.removeEventListener(
         "storage",
-        updateFavourites
+        update
       );
 
       window.removeEventListener(
         "favouritesUpdated",
-        updateFavourites
+        update
       );
     };
   }, [loadFavourites]);
 
   /* =======================================================
-     REMOVE FAVOURITE
-
-     Supports normal IDs and Spotify URLs.
+     REMOVE ITEM
   ======================================================= */
 
   const removeItem = useCallback(
-    (key, item) => {
+    (storageKey, item) => {
       if (!item) {
         return;
       }
 
       const current =
-        readArray(key);
+        readArray(storageKey);
 
       const itemId =
         safeString(item?.id);
@@ -439,7 +440,6 @@ const Favourite = () => {
                 storedItem
               );
 
-            /* Match ID */
             if (
               itemId &&
               storedId
@@ -450,7 +450,6 @@ const Favourite = () => {
               );
             }
 
-            /* Match Spotify URL */
             if (
               itemSpotifyUrl &&
               storedSpotifyUrl
@@ -466,7 +465,7 @@ const Favourite = () => {
         );
 
       localStorage.setItem(
-        key,
+        storageKey,
         JSON.stringify(updated)
       );
 
@@ -482,50 +481,7 @@ const Favourite = () => {
   );
 
   /* =======================================================
-     REMOVE SONG
-  ======================================================= */
-
-  const removeSong = useCallback(
-    (song) => {
-      removeItem(
-        "likedSongs",
-        song
-      );
-    },
-    [removeItem]
-  );
-
-  /* =======================================================
-     REMOVE ALBUM
-  ======================================================= */
-
-  const removeAlbum = useCallback(
-    (album) => {
-      removeItem(
-        "likedAlbums",
-        album
-      );
-    },
-    [removeItem]
-  );
-
-  /* =======================================================
-     REMOVE PLAYLIST
-  ======================================================= */
-
-  const removePlaylist =
-    useCallback(
-      (playlist) => {
-        removeItem(
-          "likedPlaylists",
-          playlist
-        );
-      },
-      [removeItem]
-    );
-
-  /* =======================================================
-     PLAY FAVOURITE SONG
+     PLAY SONG
   ======================================================= */
 
   const playFavouriteSong =
@@ -550,7 +506,7 @@ const Favourite = () => {
 
         playMusic(
           song,
-          queue.length > 0
+          queue.length
             ? queue
             : undefined
         );
@@ -583,24 +539,23 @@ const Favourite = () => {
           min-h-screen
           w-full
 
-          pt-[9.5rem]
-          sm:pt-[8rem]
-          lg:pt-[7rem]
+          bg-[var(--background)]
+          text-[var(--text-primary)]
 
           px-4
-          sm:px-6
-          lg:px-8
-
           pb-[7rem]
+          pt-[9.5rem]
+
+          sm:px-6
+          sm:pt-[8rem]
+
+          lg:px-8
           lg:pb-10
+          lg:pt-[7rem]
 
           transition-colors
-          duration-300
+          duration-200
         "
-        style={{
-          backgroundColor: "var(--background, #ffffff)",
-          color: "var(--text-primary, #111111)",
-        }}
       >
         <div
           className="
@@ -613,13 +568,7 @@ const Favourite = () => {
               HEADER
           ================================================= */}
 
-          <header
-            className="
-              relative
-              z-10
-              mb-7
-            "
-          >
+          <header className="relative z-10 mb-7">
             <div
               className="
                 flex
@@ -632,12 +581,11 @@ const Favourite = () => {
                 <h1
                   className="
                     text-2xl
-                    sm:text-3xl
                     font-bold
+                    text-[var(--text-primary)]
+
+                    sm:text-3xl
                   "
-                  style={{
-                    color: "var(--text-primary, #111111)",
-                  }}
                 >
                   Favourite
                 </h1>
@@ -646,10 +594,8 @@ const Favourite = () => {
                   className="
                     mt-1
                     text-sm
+                    text-[var(--text-secondary)]
                   "
-                  style={{
-                    color: "var(--text-secondary, #777777)",
-                  }}
                 >
                   Your favourite songs,
                   albums and playlists
@@ -661,14 +607,12 @@ const Favourite = () => {
                   className="
                     shrink-0
                     rounded-full
+                    bg-[var(--secondary-bg)]
                     px-3
                     py-1
                     text-xs
+                    text-[var(--text-secondary)]
                   "
-                  style={{
-                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
-                    color: "var(--text-secondary, #666666)",
-                  }}
                 >
                   {total} item
                   {total === 1
@@ -680,14 +624,14 @@ const Favourite = () => {
           </header>
 
           {/* =================================================
-              EMPTY STATE
+              EMPTY
           ================================================= */}
 
           {total === 0 && (
             <div
               className="
-                min-h-[55vh]
                 flex
+                min-h-[55vh]
                 flex-col
                 items-center
                 justify-center
@@ -701,10 +645,8 @@ const Favourite = () => {
                   mb-5
                   text-[5rem]
                   leading-none
+                  text-[var(--text-secondary)]
                 "
-                style={{
-                  color: "var(--text-secondary, #777777)",
-                }}
                 aria-hidden="true"
               >
                 ♡
@@ -713,12 +655,11 @@ const Favourite = () => {
               <h2
                 className="
                   text-xl
-                  sm:text-2xl
                   font-semibold
+                  text-[var(--text-primary)]
+
+                  sm:text-2xl
                 "
-                style={{
-                  color: "var(--text-primary, #111111)",
-                }}
               >
                 No Favourite Items
               </h2>
@@ -728,11 +669,10 @@ const Favourite = () => {
                   mt-3
                   max-w-md
                   text-sm
+                  text-[var(--text-secondary)]
+
                   sm:text-base
                 "
-                style={{
-                  color: "var(--text-secondary, #777777)",
-                }}
               >
                 Import from Spotify or
                 like songs, albums and
@@ -759,10 +699,8 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
+                    text-[var(--text-primary)]
                   "
-                  style={{
-                    color: "var(--text-primary, #111111)",
-                  }}
                 >
                   Songs
                 </h2>
@@ -770,14 +708,12 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
+                    bg-[var(--secondary-bg)]
                     px-2.5
                     py-1
                     text-xs
+                    text-[var(--text-secondary)]
                   "
-                  style={{
-                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
-                    color: "var(--text-secondary, #666666)",
-                  }}
                 >
                   {likedSongs.length}
                 </span>
@@ -788,14 +724,15 @@ const Favourite = () => {
                   w-full
                   overflow-hidden
                   rounded-xl
+
                   border
+                  border-[var(--card-border)]
+
+                  bg-[var(--card-bg)]
+
                   transition-colors
-                  duration-300
+                  duration-200
                 "
-                style={{
-                  backgroundColor: "var(--card-bg, #ffffff)",
-                  borderColor: "var(--card-border, #e5e5e5)",
-                }}
               >
                 {likedSongs.map(
                   (song, index) => {
@@ -812,15 +749,12 @@ const Favourite = () => {
                           relative
                           flex
                           items-center
+
                           border-b
+                          border-[var(--card-border)]
+
                           last:border-b-0
-                          transition-colors
-                          duration-300
                         "
-                        style={{
-                          borderColor:
-                            "var(--card-border, #e5e5e5)",
-                        }}
                       >
                         <div
                           className="
@@ -857,7 +791,6 @@ const Favourite = () => {
                               text-[#1DB954]
                               hover:bg-[#1DB954]/10
                               active:bg-[#1DB954]/20
-                              transition-colors
                             "
                             title="Open in Spotify"
                             aria-label="Open song in Spotify"
@@ -869,12 +802,15 @@ const Favourite = () => {
                           </a>
                         )}
 
-                        {/* REMOVE SONG */}
+                        {/* REMOVE */}
 
                         <button
                           type="button"
                           onClick={() =>
-                            removeSong(song)
+                            removeItem(
+                              "likedSongs",
+                              song
+                            )
                           }
                           className="
                             mr-2
@@ -888,7 +824,6 @@ const Favourite = () => {
                             text-red-500
                             hover:bg-red-500/10
                             active:bg-red-500/20
-                            transition-colors
                           "
                           title="Remove from Favourite"
                           aria-label="Remove song from Favourite"
@@ -921,10 +856,8 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
+                    text-[var(--text-primary)]
                   "
-                  style={{
-                    color: "var(--text-primary, #111111)",
-                  }}
                 >
                   Albums
                 </h2>
@@ -932,14 +865,12 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
+                    bg-[var(--secondary-bg)]
                     px-2.5
                     py-1
                     text-xs
+                    text-[var(--text-secondary)]
                   "
-                  style={{
-                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
-                    color: "var(--text-secondary, #666666)",
-                  }}
                 >
                   {likedAlbums.length}
                 </span>
@@ -950,6 +881,7 @@ const Favourite = () => {
                   grid
                   grid-cols-2
                   gap-4
+
                   sm:grid-cols-3
                   md:grid-cols-4
                   lg:grid-cols-5
@@ -971,11 +903,8 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
+                            bg-[var(--secondary-bg)]
                           "
-                          style={{
-                            backgroundColor:
-                              "var(--secondary-bg, #f3f3f3)",
-                          }}
                         >
                           <img
                             src={imageUrl(
@@ -1031,11 +960,8 @@ const Favourite = () => {
                               truncate
                               text-sm
                               font-semibold
+                              text-[var(--text-primary)]
                             "
-                            style={{
-                              color:
-                                "var(--text-primary, #111111)",
-                            }}
                           >
                             {album?.name ||
                               "Unknown Album"}
@@ -1046,11 +972,8 @@ const Favourite = () => {
                               mt-1
                               truncate
                               text-xs
+                              text-[var(--text-secondary)]
                             "
-                            style={{
-                              color:
-                                "var(--text-secondary, #777777)",
-                            }}
                           >
                             {artistNames(
                               album?.artists
@@ -1072,17 +995,12 @@ const Favourite = () => {
                           relative
                         "
                       >
-                        {/* SPOTIFY ALBUM */}
-
                         {spotifyUrl ? (
                           <a
                             href={spotifyUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="
-                              block
-                              cursor-pointer
-                            "
+                            className="block"
                             title="Open album in Spotify"
                             aria-label="Open album in Spotify"
                           >
@@ -1097,7 +1015,7 @@ const Favourite = () => {
                             {content}
                           </Link>
                         ) : (
-                          <div className="block">
+                          <div>
                             {content}
                           </div>
                         )}
@@ -1110,7 +1028,8 @@ const Favourite = () => {
                             event.preventDefault();
                             event.stopPropagation();
 
-                            removeAlbum(
+                            removeItem(
+                              "likedAlbums",
                               album
                             );
                           }}
@@ -1119,21 +1038,27 @@ const Favourite = () => {
                             left-2
                             top-2
                             z-20
+
                             flex
                             h-8
                             w-8
                             items-center
                             justify-center
+
                             rounded-full
+
                             bg-black/70
                             text-white
+
                             opacity-100
+
                             sm:opacity-0
                             sm:group-hover:opacity-100
-                            transition
+
+                            transition-opacity
                           "
-                          aria-label="Remove album from Favourite"
                           title="Remove from Favourite"
+                          aria-label="Remove album from Favourite"
                         >
                           ×
                         </button>
@@ -1163,10 +1088,8 @@ const Favourite = () => {
                   className="
                     text-xl
                     font-bold
+                    text-[var(--text-primary)]
                   "
-                  style={{
-                    color: "var(--text-primary, #111111)",
-                  }}
                 >
                   Playlists
                 </h2>
@@ -1174,14 +1097,12 @@ const Favourite = () => {
                 <span
                   className="
                     rounded-full
+                    bg-[var(--secondary-bg)]
                     px-2.5
                     py-1
                     text-xs
+                    text-[var(--text-secondary)]
                   "
-                  style={{
-                    backgroundColor: "var(--secondary-bg, #f3f3f3)",
-                    color: "var(--text-secondary, #666666)",
-                  }}
                 >
                   {likedPlaylists.length}
                 </span>
@@ -1192,6 +1113,7 @@ const Favourite = () => {
                   grid
                   grid-cols-2
                   gap-4
+
                   sm:grid-cols-3
                   md:grid-cols-4
                   lg:grid-cols-5
@@ -1218,11 +1140,8 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
+                            bg-[var(--secondary-bg)]
                           "
-                          style={{
-                            backgroundColor:
-                              "var(--secondary-bg, #f3f3f3)",
-                          }}
                         >
                           <img
                             src={imageUrl(
@@ -1258,13 +1177,18 @@ const Favourite = () => {
                                 absolute
                                 right-2
                                 top-2
+
                                 flex
                                 items-center
                                 gap-1
+
                                 rounded-full
+
                                 bg-[#1DB954]
+
                                 px-2
                                 py-1
+
                                 text-[10px]
                                 font-bold
                                 text-black
@@ -1282,11 +1206,8 @@ const Favourite = () => {
                               truncate
                               text-sm
                               font-semibold
+                              text-[var(--text-primary)]
                             "
-                            style={{
-                              color:
-                                "var(--text-primary, #111111)",
-                            }}
                           >
                             {playlist?.name ||
                               "Unknown Playlist"}
@@ -1297,11 +1218,8 @@ const Favourite = () => {
                               mt-1
                               truncate
                               text-xs
+                              text-[var(--text-secondary)]
                             "
-                            style={{
-                              color:
-                                "var(--text-secondary, #777777)",
-                            }}
                           >
                             {spotifyUrl ||
                             spotifyType ===
@@ -1324,9 +1242,7 @@ const Favourite = () => {
                           relative
                         "
                       >
-                        {/* =================================================
-                            SPOTIFY PLAYLIST REDIRECT
-                        ================================================= */}
+                        {/* SPOTIFY PLAYLIST */}
 
                         {spotifyUrl ? (
                           <a
@@ -1354,7 +1270,7 @@ const Favourite = () => {
                             {content}
                           </Link>
                         ) : (
-                          <div className="block">
+                          <div>
                             {content}
                           </div>
                         )}
@@ -1367,7 +1283,8 @@ const Favourite = () => {
                             event.preventDefault();
                             event.stopPropagation();
 
-                            removePlaylist(
+                            removeItem(
+                              "likedPlaylists",
                               playlist
                             );
                           }}
@@ -1376,21 +1293,27 @@ const Favourite = () => {
                             left-2
                             top-2
                             z-20
+
                             flex
                             h-8
                             w-8
                             items-center
                             justify-center
+
                             rounded-full
+
                             bg-black/70
                             text-white
+
                             opacity-100
+
                             sm:opacity-0
                             sm:group-hover:opacity-100
-                            transition
+
+                            transition-opacity
                           "
-                          aria-label="Remove playlist from Favourite"
                           title="Remove from Favourite"
+                          aria-label="Remove playlist from Favourite"
                         >
                           ×
                         </button>
