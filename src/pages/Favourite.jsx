@@ -145,7 +145,9 @@ const normalizeSpotifyUrl = (value) => {
     return "";
   }
 
-  /* Normal Spotify URL */
+  /* -------------------------------------------------------
+     Normal Spotify URL
+  ------------------------------------------------------- */
 
   if (
     cleanValue.startsWith(
@@ -158,26 +160,22 @@ const normalizeSpotifyUrl = (value) => {
     return cleanValue;
   }
 
-  /* spotify:playlist:ID */
+  /* -------------------------------------------------------
+     spotify:playlist:ID
+     spotify:album:ID
+     spotify:track:ID
+  ------------------------------------------------------- */
 
-  if (
-    cleanValue.startsWith(
-      "spotify:"
-    )
-  ) {
-    const parts =
-      cleanValue.split(":");
+  if (cleanValue.startsWith("spotify:")) {
+    const parts = cleanValue.split(":");
 
     if (
       parts.length >= 3 &&
       parts[1] &&
       parts[2]
     ) {
-      const type =
-        parts[1].trim();
-
-      const id =
-        parts[2].trim();
+      const type = parts[1].trim();
+      const id = parts[2].trim();
 
       if (type && id) {
         return `https://open.spotify.com/${type}/${id}`;
@@ -185,13 +183,11 @@ const normalizeSpotifyUrl = (value) => {
     }
   }
 
-  /* spotify://playlist/ID */
+  /* -------------------------------------------------------
+     spotify://playlist/ID
+  ------------------------------------------------------- */
 
-  if (
-    cleanValue.startsWith(
-      "spotify://"
-    )
-  ) {
+  if (cleanValue.startsWith("spotify://")) {
     const withoutScheme =
       cleanValue.replace(
         "spotify://",
@@ -357,7 +353,7 @@ const Favourite = () => {
   ] = useState([]);
 
   /* =======================================================
-     LOAD
+     LOAD FAVOURITES
   ======================================================= */
 
   const loadFavourites = useCallback(() => {
@@ -375,7 +371,7 @@ const Favourite = () => {
   }, []);
 
   /* =======================================================
-     LISTEN FOR CHANGES
+     LISTEN FOR FAVOURITE CHANGES
   ======================================================= */
 
   useEffect(() => {
@@ -440,6 +436,11 @@ const Favourite = () => {
                 storedItem
               );
 
+            /*
+             * If both have IDs,
+             * compare IDs.
+             */
+
             if (
               itemId &&
               storedId
@@ -449,6 +450,11 @@ const Favourite = () => {
                 itemId
               );
             }
+
+            /*
+             * Otherwise compare
+             * Spotify URLs.
+             */
 
             if (
               itemSpotifyUrl &&
@@ -481,7 +487,7 @@ const Favourite = () => {
   );
 
   /* =======================================================
-     PLAY SONG
+     PLAY FAVOURITE SONG
   ======================================================= */
 
   const playFavouriteSong =
@@ -564,24 +570,46 @@ const Favourite = () => {
             max-w-7xl
           "
         >
+
           {/* =================================================
               HEADER
           ================================================= */}
 
-          <header className="relative z-10 mb-7">
+          <header
+            className="
+              relative
+              z-10
+              mb-6
+              w-full
+            "
+          >
             <div
               className="
                 flex
-                items-center
-                justify-between
-                gap-3
+                w-full
+                flex-col
+                gap-4
+
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+                sm:gap-6
               "
             >
-              <div className="min-w-0">
+              {/* TITLE */}
+
+              <div
+                className="
+                  min-w-0
+                  flex-1
+                "
+              >
                 <h1
                   className="
+                    truncate
                     text-2xl
                     font-bold
+                    leading-tight
                     text-[var(--text-primary)]
 
                     sm:text-3xl
@@ -592,9 +620,13 @@ const Favourite = () => {
 
                 <p
                   className="
-                    mt-1
+                    mt-1.5
+                    max-w-xl
                     text-sm
+                    leading-5
                     text-[var(--text-secondary)]
+
+                    sm:text-base
                   "
                 >
                   Your favourite songs,
@@ -602,29 +634,71 @@ const Favourite = () => {
                 </p>
               </div>
 
+              {/* TOTAL COUNT */}
+
               {total > 0 && (
-                <span
+                <div
                   className="
+                    flex
+                    w-fit
                     shrink-0
+                    items-center
+                    gap-2
+
                     rounded-full
+                    border
+                    border-[var(--card-border)]
                     bg-[var(--secondary-bg)]
-                    px-3
-                    py-1
+
+                    px-3.5
+                    py-2
+
                     text-xs
+                    font-medium
                     text-[var(--text-secondary)]
+
+                    shadow-sm
+
+                    transition-colors
+                    duration-200
+
+                    sm:px-4
                   "
                 >
-                  {total} item
-                  {total === 1
-                    ? ""
-                    : "s"}
-                </span>
+                  <span
+                    className="
+                      inline-flex
+                      h-5
+                      min-w-5
+                      items-center
+                      justify-center
+
+                      rounded-full
+
+                      bg-[var(--text-primary)]
+                      px-1.5
+
+                      text-[10px]
+                      font-bold
+                      text-[var(--background)]
+                    "
+                  >
+                    {total}
+                  </span>
+
+                  <span>
+                    Favourite{" "}
+                    {total === 1
+                      ? "item"
+                      : "items"}
+                  </span>
+                </div>
               )}
             </div>
           </header>
 
           {/* =================================================
-              EMPTY
+              EMPTY STATE
           ================================================= */}
 
           {total === 0 && (
@@ -635,8 +709,10 @@ const Favourite = () => {
                 flex-col
                 items-center
                 justify-center
+
                 px-4
                 pb-8
+
                 text-center
               "
             >
@@ -669,6 +745,7 @@ const Favourite = () => {
                   mt-3
                   max-w-md
                   text-sm
+                  leading-6
                   text-[var(--text-secondary)]
 
                   sm:text-base
@@ -686,13 +763,16 @@ const Favourite = () => {
           ================================================= */}
 
           {likedSongs.length > 0 && (
-            <section className="mb-10">
+            <section
+              className="mb-10"
+            >
               <div
                 className="
                   mb-3
                   flex
                   items-center
                   justify-between
+                  gap-3
                 "
               >
                 <h2
@@ -707,11 +787,14 @@ const Favourite = () => {
 
                 <span
                   className="
+                    shrink-0
                     rounded-full
                     bg-[var(--secondary-bg)]
                     px-2.5
                     py-1
+
                     text-xs
+                    font-medium
                     text-[var(--text-secondary)]
                   "
                 >
@@ -748,6 +831,7 @@ const Favourite = () => {
                         className="
                           relative
                           flex
+                          min-w-0
                           items-center
 
                           border-b
@@ -787,8 +871,13 @@ const Favourite = () => {
                               shrink-0
                               items-center
                               justify-center
+
                               rounded-full
+
                               text-[#1DB954]
+
+                              transition-colors
+
                               hover:bg-[#1DB954]/10
                               active:bg-[#1DB954]/20
                             "
@@ -798,7 +887,9 @@ const Favourite = () => {
                               event.stopPropagation();
                             }}
                           >
-                            <FaSpotify className="text-xl" />
+                            <FaSpotify
+                              className="text-xl"
+                            />
                           </a>
                         )}
 
@@ -820,8 +911,15 @@ const Favourite = () => {
                             shrink-0
                             items-center
                             justify-center
+
                             rounded-full
+
+                            text-lg
+                            leading-none
                             text-red-500
+
+                            transition-colors
+
                             hover:bg-red-500/10
                             active:bg-red-500/20
                           "
@@ -843,13 +941,16 @@ const Favourite = () => {
           ================================================= */}
 
           {likedAlbums.length > 0 && (
-            <section className="mb-10">
+            <section
+              className="mb-10"
+            >
               <div
                 className="
                   mb-4
                   flex
                   items-center
                   justify-between
+                  gap-3
                 "
               >
                 <h2
@@ -864,11 +965,14 @@ const Favourite = () => {
 
                 <span
                   className="
+                    shrink-0
                     rounded-full
                     bg-[var(--secondary-bg)]
                     px-2.5
                     py-1
+
                     text-xs
+                    font-medium
                     text-[var(--text-secondary)]
                   "
                 >
@@ -897,6 +1001,8 @@ const Favourite = () => {
 
                     const content = (
                       <>
+                        {/* COVER */}
+
                         <div
                           className="
                             relative
@@ -918,8 +1024,10 @@ const Favourite = () => {
                               h-full
                               w-full
                               object-cover
+
                               transition
                               duration-300
+
                               group-hover:scale-105
                             "
                             loading="lazy"
@@ -940,10 +1048,14 @@ const Favourite = () => {
                                 absolute
                                 right-2
                                 top-2
+
                                 rounded-full
+
                                 bg-[#1DB954]
+
                                 px-2
                                 py-1
+
                                 text-[10px]
                                 font-bold
                                 text-black
@@ -954,7 +1066,15 @@ const Favourite = () => {
                           )}
                         </div>
 
-                        <div className="px-1 pt-2">
+                        {/* INFO */}
+
+                        <div
+                          className="
+                            min-w-0
+                            px-1
+                            pt-2
+                          "
+                        >
                           <div
                             className="
                               truncate
@@ -993,8 +1113,11 @@ const Favourite = () => {
                         className="
                           group
                           relative
+                          min-w-0
                         "
                       >
+                        {/* ALBUM LINK */}
+
                         {spotifyUrl ? (
                           <a
                             href={spotifyUrl}
@@ -1048,14 +1171,18 @@ const Favourite = () => {
                             rounded-full
 
                             bg-black/70
+                            text-lg
+                            leading-none
                             text-white
 
                             opacity-100
 
+                            transition-opacity
+
                             sm:opacity-0
                             sm:group-hover:opacity-100
 
-                            transition-opacity
+                            hover:bg-red-500
                           "
                           title="Remove from Favourite"
                           aria-label="Remove album from Favourite"
@@ -1075,13 +1202,16 @@ const Favourite = () => {
           ================================================= */}
 
           {likedPlaylists.length > 0 && (
-            <section className="mb-10">
+            <section
+              className="mb-10"
+            >
               <div
                 className="
                   mb-4
                   flex
                   items-center
                   justify-between
+                  gap-3
                 "
               >
                 <h2
@@ -1096,11 +1226,14 @@ const Favourite = () => {
 
                 <span
                   className="
+                    shrink-0
                     rounded-full
                     bg-[var(--secondary-bg)]
                     px-2.5
                     py-1
+
                     text-xs
+                    font-medium
                     text-[var(--text-secondary)]
                   "
                 >
@@ -1134,6 +1267,8 @@ const Favourite = () => {
 
                     const content = (
                       <>
+                        {/* COVER */}
+
                         <div
                           className="
                             relative
@@ -1155,8 +1290,10 @@ const Favourite = () => {
                               h-full
                               w-full
                               object-cover
+
                               transition
                               duration-300
+
                               group-hover:scale-105
                             "
                             loading="lazy"
@@ -1200,7 +1337,15 @@ const Favourite = () => {
                           )}
                         </div>
 
-                        <div className="px-1 pt-2">
+                        {/* INFO */}
+
+                        <div
+                          className="
+                            min-w-0
+                            px-1
+                            pt-2
+                          "
+                        >
                           <div
                             className="
                               truncate
@@ -1240,9 +1385,10 @@ const Favourite = () => {
                         className="
                           group
                           relative
+                          min-w-0
                         "
                       >
-                        {/* SPOTIFY PLAYLIST */}
+                        {/* PLAYLIST LINK */}
 
                         {spotifyUrl ? (
                           <a
@@ -1303,14 +1449,18 @@ const Favourite = () => {
                             rounded-full
 
                             bg-black/70
+                            text-lg
+                            leading-none
                             text-white
 
                             opacity-100
 
+                            transition-opacity
+
                             sm:opacity-0
                             sm:group-hover:opacity-100
 
-                            transition-opacity
+                            hover:bg-red-500
                           "
                           title="Remove from Favourite"
                           aria-label="Remove playlist from Favourite"
@@ -1324,6 +1474,7 @@ const Favourite = () => {
               </div>
             </section>
           )}
+
         </div>
       </main>
 
