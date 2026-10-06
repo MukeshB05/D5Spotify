@@ -125,10 +125,7 @@ const readArray = (key) => {
       ? parsed
       : [];
   } catch (error) {
-    console.error(
-      `Failed to read ${key}:`,
-      error
-    );
+    console.error(`Failed to read ${key}:`, error);
 
     return [];
   }
@@ -150,20 +147,18 @@ const normalizeSpotifyUrl = (value) => {
   ------------------------------------------------------- */
 
   if (
-    cleanValue.startsWith(
-      "https://open.spotify.com/"
-    ) ||
-    cleanValue.startsWith(
-      "http://open.spotify.com/"
-    )
+    cleanValue.startsWith("https://open.spotify.com/") ||
+    cleanValue.startsWith("http://open.spotify.com/")
   ) {
     return cleanValue;
   }
 
   /* -------------------------------------------------------
-     spotify:playlist:ID
-     spotify:album:ID
+     Spotify URI
+
      spotify:track:ID
+     spotify:album:ID
+     spotify:playlist:ID
   ------------------------------------------------------- */
 
   if (cleanValue.startsWith("spotify:")) {
@@ -174,8 +169,8 @@ const normalizeSpotifyUrl = (value) => {
       parts[1] &&
       parts[2]
     ) {
-      const type = parts[1].trim();
-      const id = parts[2].trim();
+      const type = safeString(parts[1]);
+      const id = safeString(parts[2]);
 
       if (type && id) {
         return `https://open.spotify.com/${type}/${id}`;
@@ -184,18 +179,20 @@ const normalizeSpotifyUrl = (value) => {
   }
 
   /* -------------------------------------------------------
+     Spotify URL scheme
+
+     spotify://track/ID
+     spotify://album/ID
      spotify://playlist/ID
   ------------------------------------------------------- */
 
   if (cleanValue.startsWith("spotify://")) {
-    const withoutScheme =
-      cleanValue.replace(
-        "spotify://",
-        ""
-      );
+    const withoutScheme = cleanValue.replace(
+      "spotify://",
+      ""
+    );
 
-    const parts =
-      withoutScheme.split("/");
+    const parts = withoutScheme.split("/");
 
     if (
       parts.length >= 2 &&
@@ -242,8 +239,7 @@ const getSpotifyUrl = (item) => {
   ];
 
   for (const value of possibleUrls) {
-    const url =
-      normalizeSpotifyUrl(value);
+    const url = normalizeSpotifyUrl(value);
 
     if (url) {
       return url;
@@ -270,22 +266,24 @@ const getSpotifyType = (item) => {
   ];
 
   for (const value of values) {
-    const type =
-      safeString(value).toLowerCase();
+    const type = safeString(value).toLowerCase();
 
-    if (type) {
+    if (
+      type === "track" ||
+      type === "song" ||
+      type === "album" ||
+      type === "playlist"
+    ) {
       return type;
     }
   }
 
-  const spotifyUrl =
-    getSpotifyUrl(item);
+  const spotifyUrl = getSpotifyUrl(item);
 
   if (spotifyUrl) {
-    const match =
-      spotifyUrl.match(
-        /open\.spotify\.com\/([^/?#]+)/i
-      );
+    const match = spotifyUrl.match(
+      /open\.spotify\.com\/([^/?#]+)/i
+    );
 
     if (match?.[1]) {
       return match[1].toLowerCase();
@@ -299,10 +297,7 @@ const getSpotifyType = (item) => {
    UNIQUE ITEM KEY
 ========================================================= */
 
-const getItemKey = (
-  item,
-  fallback
-) => {
+const getItemKey = (item, fallback) => {
   if (!item || typeof item !== "object") {
     return fallback;
   }
@@ -315,8 +310,7 @@ const getItemKey = (
     return String(item.id);
   }
 
-  const spotifyUrl =
-    getSpotifyUrl(item);
+  const spotifyUrl = getSpotifyUrl(item);
 
   if (spotifyUrl) {
     return spotifyUrl;
@@ -330,8 +324,7 @@ const getItemKey = (
 ========================================================= */
 
 const Favourite = () => {
-  const musicContext =
-    useContext(MusicContext) || {};
+  const musicContext = useContext(MusicContext) || {};
 
   const {
     playMusic,
@@ -414,61 +407,42 @@ const Favourite = () => {
         return;
       }
 
-      const current =
-        readArray(storageKey);
+      const current = readArray(storageKey);
 
-      const itemId =
-        safeString(item?.id);
+      const itemId = safeString(item?.id);
 
       const itemSpotifyUrl =
         getSpotifyUrl(item);
 
-      const updated =
-        current.filter(
-          (storedItem) => {
-            const storedId =
-              safeString(
-                storedItem?.id
-              );
+      const updated = current.filter(
+        (storedItem) => {
+          const storedId =
+            safeString(storedItem?.id);
 
-            const storedSpotifyUrl =
-              getSpotifyUrl(
-                storedItem
-              );
+          const storedSpotifyUrl =
+            getSpotifyUrl(storedItem);
 
-            /*
-             * If both have IDs,
-             * compare IDs.
-             */
+          /* Compare IDs when available */
 
-            if (
-              itemId &&
-              storedId
-            ) {
-              return (
-                storedId !==
-                itemId
-              );
-            }
-
-            /*
-             * Otherwise compare
-             * Spotify URLs.
-             */
-
-            if (
-              itemSpotifyUrl &&
-              storedSpotifyUrl
-            ) {
-              return (
-                storedSpotifyUrl !==
-                itemSpotifyUrl
-              );
-            }
-
-            return true;
+          if (itemId && storedId) {
+            return storedId !== itemId;
           }
-        );
+
+          /* Otherwise compare Spotify URLs */
+
+          if (
+            itemSpotifyUrl &&
+            storedSpotifyUrl
+          ) {
+            return (
+              storedSpotifyUrl !==
+              itemSpotifyUrl
+            );
+          }
+
+          return true;
+        }
+      );
 
       localStorage.setItem(
         storageKey,
@@ -478,9 +452,7 @@ const Favourite = () => {
       loadFavourites();
 
       window.dispatchEvent(
-        new Event(
-          "favouritesUpdated"
-        )
+        new Event("favouritesUpdated")
       );
     },
     [loadFavourites]
@@ -490,38 +462,34 @@ const Favourite = () => {
      PLAY FAVOURITE SONG
   ======================================================= */
 
-  const playFavouriteSong =
-    useCallback(
-      (song) => {
-        if (
-          !song ||
-          typeof playMusic !==
-            "function"
-        ) {
-          return;
-        }
+  const playFavouriteSong = useCallback(
+    (song) => {
+      if (
+        !song ||
+        typeof playMusic !== "function"
+      ) {
+        return;
+      }
 
-        const queue =
-          likedSongs.filter(
-            (item) =>
-              item &&
-              item.id !==
-                undefined &&
-              item.id !== null
-          );
+      const queue = likedSongs.filter(
+        (item) =>
+          item &&
+          item.id !== undefined &&
+          item.id !== null
+      );
 
-        playMusic(
-          song,
-          queue.length
-            ? queue
-            : undefined
-        );
-      },
-      [
-        likedSongs,
-        playMusic,
-      ]
-    );
+      playMusic(
+        song,
+        queue.length > 0
+          ? queue
+          : undefined
+      );
+    },
+    [
+      likedSongs,
+      playMusic,
+    ]
+  );
 
   /* =======================================================
      TOTAL
@@ -550,7 +518,7 @@ const Favourite = () => {
 
           px-4
           pb-[7rem]
-          pt-[9.5rem]
+          pt-[9rem]
 
           sm:px-6
           sm:pt-[8rem]
@@ -570,132 +538,121 @@ const Favourite = () => {
             max-w-7xl
           "
         >
-
           {/* =================================================
-              HEADER
+              FAVOURITE TITLE
           ================================================= */}
 
-          <header
+          <div
             className="
-              relative
-              z-10
               mb-6
+              flex
               w-full
+              items-center
+              justify-between
+              gap-4
             "
           >
+            {/* TITLE */}
+
             <div
               className="
-                flex
-                w-full
-                flex-col
-                gap-4
-
-                sm:flex-row
-                sm:items-center
-                sm:justify-between
-                sm:gap-6
+                min-w-0
+                flex-1
               "
             >
-              {/* TITLE */}
-
-              <div
+              <h1
                 className="
-                  min-w-0
-                  flex-1
+                  truncate
+                  text-2xl
+                  font-bold
+                  leading-tight
+                  text-[var(--text-primary)]
+
+                  sm:text-3xl
                 "
               >
-                <h1
-                  className="
-                    truncate
-                    text-2xl
-                    font-bold
-                    leading-tight
-                    text-[var(--text-primary)]
+                Favourite
+              </h1>
 
-                    sm:text-3xl
-                  "
-                >
-                  Favourite
-                </h1>
+              <p
+                className="
+                  mt-1
+                  truncate
+                  text-sm
+                  text-[var(--text-secondary)]
 
-                <p
-                  className="
-                    mt-1.5
-                    max-w-xl
-                    text-sm
-                    leading-5
-                    text-[var(--text-secondary)]
+                  sm:text-base
+                "
+              >
+                Your favourite songs, albums and playlists
+              </p>
+            </div>
 
-                    sm:text-base
-                  "
-                >
-                  Your favourite songs,
-                  albums and playlists
-                </p>
-              </div>
+            {/* TOTAL */}
 
-              {/* TOTAL COUNT */}
+            {total > 0 && (
+              <div
+                className="
+                  flex
+                  shrink-0
+                  items-center
+                  gap-2
 
-              {total > 0 && (
-                <div
+                  rounded-full
+                  border
+                  border-[var(--card-border)]
+                  bg-[var(--secondary-bg)]
+
+                  px-3
+                  py-1.5
+
+                  text-xs
+                  font-medium
+                  text-[var(--text-secondary)]
+
+                  shadow-sm
+
+                  sm:px-4
+                  sm:py-2
+                  sm:text-sm
+                "
+              >
+                <span
                   className="
                     flex
-                    w-fit
-                    shrink-0
+                    h-5
+                    min-w-5
                     items-center
-                    gap-2
+                    justify-center
 
                     rounded-full
-                    border
-                    border-[var(--card-border)]
-                    bg-[var(--secondary-bg)]
 
-                    px-3.5
-                    py-2
+                    bg-[var(--text-primary)]
 
-                    text-xs
-                    font-medium
-                    text-[var(--text-secondary)]
+                    px-1
 
-                    shadow-sm
-
-                    transition-colors
-                    duration-200
-
-                    sm:px-4
+                    text-[10px]
+                    font-bold
+                    text-[var(--background)]
                   "
                 >
-                  <span
-                    className="
-                      inline-flex
-                      h-5
-                      min-w-5
-                      items-center
-                      justify-center
+                  {total}
+                </span>
 
-                      rounded-full
+                <span className="hidden sm:inline">
+                  {total === 1
+                    ? "Favourite item"
+                    : "Favourite items"}
+                </span>
 
-                      bg-[var(--text-primary)]
-                      px-1.5
-
-                      text-[10px]
-                      font-bold
-                      text-[var(--background)]
-                    "
-                  >
-                    {total}
-                  </span>
-
-                  <span>
-                    Favourite{" "}
-                    {total === 1
-                      ? "item"
-                      : "items"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </header>
+                <span className="sm:hidden">
+                  {total === 1
+                    ? "Item"
+                    : "Items"}
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* =================================================
               EMPTY STATE
@@ -751,9 +708,8 @@ const Favourite = () => {
                   sm:text-base
                 "
               >
-                Import from Spotify or
-                like songs, albums and
-                playlists.
+                Import from Spotify or like songs,
+                albums and playlists.
               </p>
             </div>
           )}
@@ -763,9 +719,7 @@ const Favourite = () => {
           ================================================= */}
 
           {likedSongs.length > 0 && (
-            <section
-              className="mb-10"
-            >
+            <section className="mb-10">
               <div
                 className="
                   mb-3
@@ -790,6 +744,7 @@ const Favourite = () => {
                     shrink-0
                     rounded-full
                     bg-[var(--secondary-bg)]
+
                     px-2.5
                     py-1
 
@@ -856,7 +811,7 @@ const Favourite = () => {
                           />
                         </div>
 
-                        {/* SPOTIFY SONG */}
+                        {/* SPOTIFY */}
 
                         {spotifyUrl && (
                           <a
@@ -941,9 +896,7 @@ const Favourite = () => {
           ================================================= */}
 
           {likedAlbums.length > 0 && (
-            <section
-              className="mb-10"
-            >
+            <section className="mb-10">
               <div
                 className="
                   mb-4
@@ -968,6 +921,7 @@ const Favourite = () => {
                     shrink-0
                     rounded-full
                     bg-[var(--secondary-bg)]
+
                     px-2.5
                     py-1
 
@@ -995,9 +949,7 @@ const Favourite = () => {
                 {likedAlbums.map(
                   (album, index) => {
                     const spotifyUrl =
-                      getSpotifyUrl(
-                        album
-                      );
+                      getSpotifyUrl(album);
 
                     const content = (
                       <>
@@ -1009,6 +961,7 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
+
                             bg-[var(--secondary-bg)]
                           "
                         >
@@ -1031,9 +984,7 @@ const Favourite = () => {
                               group-hover:scale-105
                             "
                             loading="lazy"
-                            onError={(
-                              event
-                            ) => {
+                            onError={(event) => {
                               event.currentTarget.onerror =
                                 null;
 
@@ -1049,6 +1000,10 @@ const Favourite = () => {
                                 right-2
                                 top-2
 
+                                flex
+                                items-center
+                                gap-1
+
                                 rounded-full
 
                                 bg-[#1DB954]
@@ -1061,6 +1016,7 @@ const Favourite = () => {
                                 text-black
                               "
                             >
+                              <FaSpotify />
                               Spotify
                             </span>
                           )}
@@ -1097,8 +1053,7 @@ const Favourite = () => {
                           >
                             {artistNames(
                               album?.artists
-                            ) ||
-                              "Album"}
+                            ) || "Album"}
                           </div>
                         </div>
                       </>
@@ -1143,7 +1098,7 @@ const Favourite = () => {
                           </div>
                         )}
 
-                        {/* REMOVE ALBUM */}
+                        {/* REMOVE */}
 
                         <button
                           type="button"
@@ -1202,9 +1157,7 @@ const Favourite = () => {
           ================================================= */}
 
           {likedPlaylists.length > 0 && (
-            <section
-              className="mb-10"
-            >
+            <section className="mb-10">
               <div
                 className="
                   mb-4
@@ -1229,6 +1182,7 @@ const Favourite = () => {
                     shrink-0
                     rounded-full
                     bg-[var(--secondary-bg)]
+
                     px-2.5
                     py-1
 
@@ -1275,6 +1229,7 @@ const Favourite = () => {
                             aspect-square
                             overflow-hidden
                             rounded-xl
+
                             bg-[var(--secondary-bg)]
                           "
                         >
@@ -1297,9 +1252,7 @@ const Favourite = () => {
                               group-hover:scale-105
                             "
                             loading="lazy"
-                            onError={(
-                              event
-                            ) => {
+                            onError={(event) => {
                               event.currentTarget.onerror =
                                 null;
 
@@ -1366,9 +1319,8 @@ const Favourite = () => {
                               text-[var(--text-secondary)]
                             "
                           >
-                            {spotifyUrl ||
-                            spotifyType ===
-                              "playlist"
+                            {spotifyType ===
+                            "playlist"
                               ? "Spotify Playlist"
                               : "Playlist"}
                           </div>
@@ -1421,7 +1373,7 @@ const Favourite = () => {
                           </div>
                         )}
 
-                        {/* REMOVE PLAYLIST */}
+                        {/* REMOVE */}
 
                         <button
                           type="button"
@@ -1474,7 +1426,6 @@ const Favourite = () => {
               </div>
             </section>
           )}
-
         </div>
       </main>
 
