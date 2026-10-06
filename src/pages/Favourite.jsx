@@ -1,183 +1,66 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { Link } from "react-router-dom";
-import { FaSpotify } from "react-icons/fa";
-
-import MusicContext from "../context/MusicContext";
-import SongsList from "../components/SongsList";
 import Navbar from "../components/Navbar";
 import Navigator from "../components/Navigator";
+import SongsList from "../components/SongsList";
 
-/* =========================================================
-   HELPERS
-========================================================= */
+import PlaylistItems from "../components/Items/PlaylistItems";
+import AlbumItems from "../components/Items/AlbumItems";
+
+import { FaHeart, FaSpotify } from "react-icons/fa6";
+
+import {
+  MdOutlineKeyboardArrowLeft,
+  MdOutlineKeyboardArrowRight,
+} from "react-icons/md";
+
+
+// ======================================================
+// Helpers
+// ======================================================
 
 const safeString = (value) => {
-  if (value === null || value === undefined) {
-    return "";
-  }
-
+  if (value === null || value === undefined) return "";
   return String(value).trim();
 };
 
-/* =========================================================
-   IMAGE URL
-========================================================= */
 
-const imageUrl = (image) => {
-  if (Array.isArray(image)) {
-    for (let i = image.length - 1; i >= 0; i -= 1) {
-      const item = image[i];
+// ------------------------------------------------------
+// Get Spotify URL
+// ------------------------------------------------------
 
-      const url =
-        typeof item === "string"
-          ? item
-          : item?.url ||
-            item?.link ||
-            item?.src;
+const getSpotifyUrl = (item) => {
+  if (!item || typeof item !== "object") return "";
 
-      if (safeString(url)) {
-        return safeString(url);
-      }
-    }
-  }
+  let url =
+    item.spotifyUrl ||
+    item.spotify_url ||
+    item.spotifyLink ||
+    item.spotify_link ||
+    item.external_urls?.spotify ||
+    item.externalUrls?.spotify ||
+    item.spotify?.external_urls?.spotify ||
+    item.spotify?.externalUrls?.spotify ||
+    item.spotify?.url ||
+    item.spotify?.uri ||
+    item.links?.spotify ||
+    item.urls?.spotify ||
+    item.spotifyUri ||
+    item.spotify_uri ||
+    item.uri ||
+    "";
 
-  if (typeof image === "string") {
-    const value = image.trim();
+  url = safeString(url);
 
-    if (value) {
-      return value;
-    }
-  }
+  if (!url) return "";
 
-  if (image && typeof image === "object") {
-    const url =
-      image.url ||
-      image.link ||
-      image.src;
+  // spotify:track:ID
+  if (url.startsWith("spotify:")) {
+    const parts = url.split(":");
 
-    if (safeString(url)) {
-      return safeString(url);
-    }
-  }
-
-  return "/Unknown.png";
-};
-
-/* =========================================================
-   ARTIST NAMES
-========================================================= */
-
-const artistNames = (artists) => {
-  if (Array.isArray(artists?.primary)) {
-    return artists.primary
-      .map((artist) =>
-        typeof artist === "string"
-          ? artist
-          : artist?.name
-      )
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  if (Array.isArray(artists)) {
-    return artists
-      .map((artist) =>
-        typeof artist === "string"
-          ? artist
-          : artist?.name
-      )
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  if (typeof artists === "string") {
-    return artists;
-  }
-
-  if (artists?.name) {
-    return artists.name;
-  }
-
-  return "";
-};
-
-/* =========================================================
-   LOCAL STORAGE
-========================================================= */
-
-const readArray = (key) => {
-  try {
-    const value = localStorage.getItem(key);
-
-    if (!value) {
-      return [];
-    }
-
-    const parsed = JSON.parse(value);
-
-    return Array.isArray(parsed)
-      ? parsed
-      : [];
-  } catch (error) {
-    console.error(
-      `Failed to read ${key}:`,
-      error
-    );
-
-    return [];
-  }
-};
-
-/* =========================================================
-   SPOTIFY URL NORMALIZER
-========================================================= */
-
-const normalizeSpotifyUrl = (value) => {
-  const cleanValue = safeString(value);
-
-  if (!cleanValue) {
-    return "";
-  }
-
-  /* Normal Spotify URL */
-
-  if (
-    cleanValue.startsWith(
-      "https://open.spotify.com/"
-    ) ||
-    cleanValue.startsWith(
-      "http://open.spotify.com/"
-    )
-  ) {
-    return cleanValue;
-  }
-
-  /* spotify:playlist:ID */
-
-  if (
-    cleanValue.startsWith(
-      "spotify:"
-    )
-  ) {
-    const parts =
-      cleanValue.split(":");
-
-    if (
-      parts.length >= 3 &&
-      parts[1] &&
-      parts[2]
-    ) {
-      const type =
-        parts[1].trim();
-
-      const id =
-        parts[2].trim();
+    if (parts.length >= 3) {
+      const type = parts[1];
+      const id = parts[2];
 
       if (type && id) {
         return `https://open.spotify.com/${type}/${id}`;
@@ -185,350 +68,594 @@ const normalizeSpotifyUrl = (value) => {
     }
   }
 
-  /* spotify://playlist/ID */
+  // spotify://track/ID
+  if (url.startsWith("spotify://")) {
+    const cleanUrl = url.replace("spotify://", "");
+    const parts = cleanUrl.split("/");
 
-  if (
-    cleanValue.startsWith(
-      "spotify://"
-    )
-  ) {
-    const withoutScheme =
-      cleanValue.replace(
-        "spotify://",
-        ""
-      );
-
-    const parts =
-      withoutScheme.split("/");
-
-    if (
-      parts.length >= 2 &&
-      parts[0] &&
-      parts[1]
-    ) {
+    if (parts.length >= 2) {
       return `https://open.spotify.com/${parts[0]}/${parts[1]}`;
     }
   }
 
-  return "";
+  return url;
 };
 
-/* =========================================================
-   GET SPOTIFY URL
-========================================================= */
 
-const getSpotifyUrl = (item) => {
-  if (!item || typeof item !== "object") {
-    return "";
-  }
-
-  const possibleUrls = [
-    item.spotifyUrl,
-    item.spotify_url,
-    item.spotifyLink,
-    item.spotify_link,
-
-    item.uri,
-
-    item.external_urls?.spotify,
-    item.externalUrls?.spotify,
-
-    item.spotify?.url,
-    item.spotify?.uri,
-    item.spotify?.spotifyUrl,
-    item.spotify?.spotify_url,
-
-    item.spotify?.external_urls?.spotify,
-    item.spotify?.externalUrls?.spotify,
-
-    item.links?.spotify,
-    item.urls?.spotify,
-  ];
-
-  for (const value of possibleUrls) {
-    const url =
-      normalizeSpotifyUrl(value);
-
-    if (url) {
-      return url;
-    }
-  }
-
-  return "";
-};
-
-/* =========================================================
-   SPOTIFY TYPE
-========================================================= */
+// ------------------------------------------------------
+// Detect Spotify type
+// ------------------------------------------------------
 
 const getSpotifyType = (item) => {
-  if (!item || typeof item !== "object") {
-    return "";
-  }
+  if (!item) return "";
 
-  const values = [
-    item.type,
-    item.spotifyType,
-    item.spotify_type,
-    item.spotify?.type,
-  ];
-
-  for (const value of values) {
-    const type =
-      safeString(value).toLowerCase();
-
-    if (type) {
-      return type;
-    }
-  }
-
-  const spotifyUrl =
-    getSpotifyUrl(item);
+  const spotifyUrl = getSpotifyUrl(item);
 
   if (spotifyUrl) {
-    const match =
-      spotifyUrl.match(
-        /open\.spotify\.com\/([^/?#]+)/i
-      );
+    const match = spotifyUrl.match(
+      /open\.spotify\.com\/(track|album|playlist)(?:\/|$)/i
+    );
 
-    if (match?.[1]) {
+    if (match) {
       return match[1].toLowerCase();
     }
   }
 
+  const type = safeString(
+    item.spotifyType ||
+      item.spotify_type ||
+      item.type
+  ).toLowerCase();
+
+  if (type === "song") return "track";
+  if (type === "track") return "track";
+  if (type === "album") return "album";
+  if (type === "playlist") return "playlist";
+
   return "";
 };
 
-/* =========================================================
-   UNIQUE ITEM KEY
-========================================================= */
 
-const getItemKey = (
-  item,
-  fallback
-) => {
-  if (!item || typeof item !== "object") {
-    return fallback;
+// ------------------------------------------------------
+// Get image
+// ------------------------------------------------------
+
+const getImage = (item) => {
+  if (!item) return "/Unknown.png";
+
+  const image =
+    item.image ||
+    item.images?.[0]?.url ||
+    item.images?.[0] ||
+    item.album?.image ||
+    item.album?.images?.[0]?.url ||
+    item.album?.images?.[0] ||
+    "/Unknown.png";
+
+  if (Array.isArray(image)) {
+    return image[0] || "/Unknown.png";
   }
 
-  if (
-    item.id !== undefined &&
-    item.id !== null &&
-    safeString(item.id)
-  ) {
-    return String(item.id);
-  }
-
-  const spotifyUrl =
-    getSpotifyUrl(item);
-
-  if (spotifyUrl) {
-    return spotifyUrl;
-  }
-
-  return fallback;
+  return safeString(image) || "/Unknown.png";
 };
 
-/* =========================================================
-   FAVOURITE
-========================================================= */
+
+// ------------------------------------------------------
+// Get artist name
+// ------------------------------------------------------
+
+const getArtists = (artists) => {
+  if (!artists) return "Unknown Artist";
+
+  if (typeof artists === "string") {
+    return artists;
+  }
+
+  if (Array.isArray(artists)) {
+    return artists
+      .map((artist) => {
+        if (typeof artist === "string") {
+          return artist;
+        }
+
+        return (
+          artist?.name ||
+          artist?.title ||
+          ""
+        );
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (artists?.primary) {
+    return getArtists(artists.primary);
+  }
+
+  if (artists?.name) {
+    return artists.name;
+  }
+
+  return "Unknown Artist";
+};
+
+
+// ------------------------------------------------------
+// Unique item key
+// ------------------------------------------------------
+
+const getItemKey = (item, index) => {
+  return (
+    item?.id ||
+    item?.spotifyId ||
+    item?.spotify_id ||
+    getSpotifyUrl(item) ||
+    `favourite-${index}`
+  );
+};
+
+
+// ======================================================
+// Favourite
+// ======================================================
 
 const Favourite = () => {
-  const musicContext =
-    useContext(MusicContext) || {};
+  const [likedSongs, setLikedSongs] = useState([]);
+  const [likedAlbums, setLikedAlbums] = useState([]);
+  const [likedPlaylists, setLikedPlaylists] = useState([]);
 
-  const {
-    playMusic,
-  } = musicContext;
+  const [spotifyTracks, setSpotifyTracks] = useState([]);
+  const [spotifyAlbums, setSpotifyAlbums] = useState([]);
+  const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
 
-  const [
-    likedSongs,
-    setLikedSongs,
-  ] = useState([]);
+  const [list, setList] = useState([]);
 
-  const [
-    likedAlbums,
-    setLikedAlbums,
-  ] = useState([]);
+  // --------------------------------------------------
+  // Refs
+  // --------------------------------------------------
 
-  const [
-    likedPlaylists,
-    setLikedPlaylists,
-  ] = useState([]);
+  const albumsScrollRef = useRef(null);
+  const playlistsScrollRef = useRef(null);
 
-  /* =======================================================
-     LOAD
-  ======================================================= */
+  const spotifyAlbumsScrollRef = useRef(null);
+  const spotifyPlaylistsScrollRef = useRef(null);
 
-  const loadFavourites = useCallback(() => {
-    setLikedSongs(
-      readArray("likedSongs")
-    );
 
-    setLikedAlbums(
-      readArray("likedAlbums")
-    );
+  // ==================================================
+  // Load favourites
+  // ==================================================
 
-    setLikedPlaylists(
-      readArray("likedPlaylists")
-    );
-  }, []);
+  const loadFavourites = () => {
+    try {
+      const songs = JSON.parse(
+        localStorage.getItem("likedSongs") || "[]"
+      );
 
-  /* =======================================================
-     LISTEN FOR CHANGES
-  ======================================================= */
+      const albums = JSON.parse(
+        localStorage.getItem("likedAlbums") || "[]"
+      );
+
+      const playlists = JSON.parse(
+        localStorage.getItem("likedPlaylists") || "[]"
+      );
+
+      const safeSongs = Array.isArray(songs)
+        ? songs
+        : [];
+
+      const safeAlbums = Array.isArray(albums)
+        ? albums
+        : [];
+
+      const safePlaylists = Array.isArray(playlists)
+        ? playlists
+        : [];
+
+      setLikedSongs(safeSongs);
+      setLikedAlbums(safeAlbums);
+      setLikedPlaylists(safePlaylists);
+
+      setList(safeSongs);
+
+
+      // -----------------------------------------------
+      // Spotify Tracks
+      // -----------------------------------------------
+
+      const tracks = safeSongs.filter((item) => {
+        return (
+          getSpotifyUrl(item) &&
+          getSpotifyType(item) === "track"
+        );
+      });
+
+
+      // -----------------------------------------------
+      // Spotify Albums
+      // -----------------------------------------------
+
+      const spotifyAlbumItems = safeAlbums.filter(
+        (item) => {
+          return (
+            getSpotifyUrl(item) &&
+            getSpotifyType(item) === "album"
+          );
+        }
+      );
+
+
+      // -----------------------------------------------
+      // Spotify Playlists
+      // -----------------------------------------------
+
+      const spotifyPlaylistItems =
+        safePlaylists.filter((item) => {
+          return (
+            getSpotifyUrl(item) &&
+            getSpotifyType(item) === "playlist"
+          );
+        });
+
+
+      // -----------------------------------------------
+      // Remove duplicates
+      // -----------------------------------------------
+
+      const uniqueTracks = Array.from(
+        new Map(
+          tracks.map((item, index) => [
+            getItemKey(item, index),
+            item,
+          ])
+        ).values()
+      );
+
+      const uniqueAlbums = Array.from(
+        new Map(
+          spotifyAlbumItems.map((item, index) => [
+            getItemKey(item, index),
+            item,
+          ])
+        ).values()
+      );
+
+      const uniquePlaylists = Array.from(
+        new Map(
+          spotifyPlaylistItems.map((item, index) => [
+            getItemKey(item, index),
+            item,
+          ])
+        ).values()
+      );
+
+
+      setSpotifyTracks(uniqueTracks);
+      setSpotifyAlbums(uniqueAlbums);
+      setSpotifyPlaylists(uniquePlaylists);
+
+    } catch (error) {
+      console.error(
+        "Favourite loading error:",
+        error
+      );
+
+      setLikedSongs([]);
+      setLikedAlbums([]);
+      setLikedPlaylists([]);
+
+      setSpotifyTracks([]);
+      setSpotifyAlbums([]);
+      setSpotifyPlaylists([]);
+
+      setList([]);
+    }
+  };
+
+
+  // ==================================================
+  // Load + update listeners
+  // ==================================================
 
   useEffect(() => {
     loadFavourites();
 
-    const update = () => {
+    const handleStorage = () => {
+      loadFavourites();
+    };
+
+    const handleFavouriteUpdate = () => {
       loadFavourites();
     };
 
     window.addEventListener(
       "storage",
-      update
+      handleStorage
     );
 
     window.addEventListener(
       "favouritesUpdated",
-      update
+      handleFavouriteUpdate
     );
 
     return () => {
       window.removeEventListener(
         "storage",
-        update
+        handleStorage
       );
 
       window.removeEventListener(
         "favouritesUpdated",
-        update
+        handleFavouriteUpdate
       );
     };
-  }, [loadFavourites]);
+  }, []);
 
-  /* =======================================================
-     REMOVE ITEM
-  ======================================================= */
 
-  const removeItem = useCallback(
-    (storageKey, item) => {
-      if (!item) {
-        return;
-      }
+  // ==================================================
+  // Scroll
+  // ==================================================
 
-      const current =
-        readArray(storageKey);
+  const scrollLeft = (ref) => {
+    if (!ref?.current) return;
 
-      const itemId =
-        safeString(item?.id);
+    ref.current.scrollBy({
+      left: -700,
+      behavior: "smooth",
+    });
+  };
 
-      const itemSpotifyUrl =
-        getSpotifyUrl(item);
 
-      const updated =
-        current.filter(
-          (storedItem) => {
-            const storedId =
-              safeString(
-                storedItem?.id
-              );
+  const scrollRight = (ref) => {
+    if (!ref?.current) return;
 
-            const storedSpotifyUrl =
-              getSpotifyUrl(
-                storedItem
-              );
+    ref.current.scrollBy({
+      left: 700,
+      behavior: "smooth",
+    });
+  };
 
-            if (
-              itemId &&
-              storedId
-            ) {
-              return (
-                storedId !==
-                itemId
-              );
-            }
 
-            if (
-              itemSpotifyUrl &&
-              storedSpotifyUrl
-            ) {
-              return (
-                storedSpotifyUrl !==
-                itemSpotifyUrl
-              );
-            }
+  // ==================================================
+  // Spotify redirect
+  // ==================================================
 
-            return true;
-          }
-        );
+  const openSpotify = (item) => {
+    const url = getSpotifyUrl(item);
 
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify(updated)
-      );
+    if (!url) return;
 
-      loadFavourites();
+    window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
-      window.dispatchEvent(
-        new Event(
-          "favouritesUpdated"
-        )
-      );
-    },
-    [loadFavourites]
-  );
 
-  /* =======================================================
-     PLAY SONG
-  ======================================================= */
+  // ==================================================
+  // Spotify Track Card
+  // ==================================================
 
-  const playFavouriteSong =
-    useCallback(
-      (song) => {
-        if (
-          !song ||
-          typeof playMusic !==
-            "function"
-        ) {
-          return;
-        }
+  const SpotifyTrack = ({ track, index }) => {
+    const url = getSpotifyUrl(track);
 
-        const queue =
-          likedSongs.filter(
-            (item) =>
-              item &&
-              item.id !==
-                undefined &&
-              item.id !== null
-          );
+    const name =
+      track?.name ||
+      track?.title ||
+      "Spotify Track";
 
-        playMusic(
-          song,
-          queue.length
-            ? queue
-            : undefined
-        );
-      },
-      [
-        likedSongs,
-        playMusic,
-      ]
+    const artistText = getArtists(
+      track?.artists ||
+        track?.artist ||
+        track?.artists?.primary
     );
 
-  /* =======================================================
-     TOTAL
-  ======================================================= */
+    return (
+      <div
+        className="
+          flex
+          items-center
+          gap-3
+          w-full
+          min-w-0
+          p-3
+          rounded-xl
+          border
+          bg-[var(--card-bg)]
+          border-[var(--card-border)]
+          hover:bg-[var(--secondary-bg)]
+          transition-all
+        "
+      >
+        <img
+          src={getImage(track)}
+          alt={name}
+          className="
+            w-14
+            h-14
+            rounded-lg
+            object-cover
+            flex-shrink-0
+          "
+          onError={(event) => {
+            event.currentTarget.src =
+              "/Unknown.png";
+          }}
+        />
 
-  const total =
-    likedSongs.length +
-    likedAlbums.length +
-    likedPlaylists.length;
+        <div className="flex-1 min-w-0">
+          <h3
+            className="
+              font-semibold
+              truncate
+              text-[var(--text-primary)]
+            "
+          >
+            {name}
+          </h3>
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+          <p
+            className="
+              text-sm
+              truncate
+              text-[var(--text-secondary)]
+            "
+          >
+            {artistText}
+          </p>
+        </div>
+
+        {url && (
+          <button
+            type="button"
+            onClick={() => openSpotify(track)}
+            className="
+              flex
+              items-center
+              justify-center
+              gap-1
+              px-3
+              py-2
+              rounded-full
+              bg-[#1DB954]
+              text-white
+              hover:scale-105
+              transition-transform
+              flex-shrink-0
+            "
+            title="Open Spotify Track"
+          >
+            <FaSpotify />
+            <span className="hidden sm:inline">
+              Spotify
+            </span>
+          </button>
+        )}
+      </div>
+    );
+  };
+
+
+  // ==================================================
+  // Spotify Album Card
+  // ==================================================
+
+  const SpotifyAlbum = ({
+    album,
+    index,
+  }) => {
+    const url = getSpotifyUrl(album);
+
+    return (
+      <div
+        key={getItemKey(album, index)}
+        className="
+          relative
+          flex-shrink-0
+        "
+      >
+        <AlbumItems {...album} />
+
+        {url && (
+          <button
+            type="button"
+            onClick={() => openSpotify(album)}
+            className="
+              absolute
+              right-2
+              bottom-2
+              z-30
+              flex
+              items-center
+              justify-center
+              w-9
+              h-9
+              rounded-full
+              bg-[#1DB954]
+              text-white
+              shadow-lg
+              hover:scale-110
+              transition-transform
+            "
+            title="Open Spotify Album"
+          >
+            <FaSpotify />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+
+  // ==================================================
+  // Spotify Playlist Card
+  // ==================================================
+
+  const SpotifyPlaylist = ({
+    playlist,
+    index,
+  }) => {
+    const url = getSpotifyUrl(playlist);
+
+    return (
+      <div
+        key={getItemKey(playlist, index)}
+        className="
+          relative
+          flex-shrink-0
+        "
+      >
+        <PlaylistItems {...playlist} />
+
+        {url && (
+          <button
+            type="button"
+            onClick={() =>
+              openSpotify(playlist)
+            }
+            className="
+              absolute
+              right-2
+              bottom-2
+              z-30
+              flex
+              items-center
+              justify-center
+              w-9
+              h-9
+              rounded-full
+              bg-[#1DB954]
+              text-white
+              shadow-lg
+              hover:scale-110
+              transition-transform
+            "
+            title="Open Spotify Playlist"
+          >
+            <FaSpotify />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+
+  // ==================================================
+  // Empty state
+  // ==================================================
+
+  const hasFavourites =
+    likedSongs.length > 0 ||
+    likedAlbums.length > 0 ||
+    likedPlaylists.length > 0 ||
+    spotifyTracks.length > 0 ||
+    spotifyAlbums.length > 0 ||
+    spotifyPlaylists.length > 0;
+
+
+  // ==================================================
+  // JSX
+  // ==================================================
 
   return (
     <>
@@ -537,794 +664,668 @@ const Favourite = () => {
       <main
         className="
           min-h-screen
-          w-full
-
+          flex
+          flex-col
+          gap-8
+          pb-[12rem]
+          pt-[7rem]
           bg-[var(--background)]
           text-[var(--text-primary)]
-
-          px-4
-          pb-[7rem]
-          pt-[9.5rem]
-
-          sm:px-6
-          sm:pt-[8rem]
-
-          lg:px-8
-          lg:pb-10
-          lg:pt-[7rem]
-
-          transition-colors
-          duration-200
         "
       >
+
+        {/* ============================================
+            HEADER
+        ============================================ */}
+
         <div
           className="
-            mx-auto
-            w-full
-            max-w-7xl
+            flex
+            items-center
+            gap-5
+            ml-5
+            lg:ml-12
           "
         >
-          {/* =================================================
-              HEADER
-          ================================================= */}
+          <div
+            className="
+              flex
+              justify-center
+              items-center
+              w-32
+              h-32
+              lg:w-48
+              lg:h-48
+              rounded-xl
+              bg-[var(--card-bg)]
+              border
+              border-[var(--card-border)]
+            "
+          >
+            <FaHeart
+              className="
+                text-5xl
+                lg:text-7xl
+                text-[#1DB954]
+              "
+            />
+          </div>
 
-          <header className="relative z-10 mb-7">
+          <h1
+            className="
+              text-3xl
+              lg:text-4xl
+              font-bold
+              text-[var(--text-primary)]
+            "
+          >
+            My Favourite
+          </h1>
+        </div>
+
+
+        {/* ============================================
+            LIKED SONGS
+        ============================================ */}
+
+        {likedSongs.length > 0 && (
+          <section>
+            <h2
+              className="
+                text-2xl
+                font-semibold
+                px-5
+                py-3
+                text-[var(--text-primary)]
+              "
+            >
+              Liked Songs
+            </h2>
+
+            <div className="flex flex-wrap">
+              {likedSongs.map(
+                (song, index) =>
+                  song && (
+                    <SongsList
+                      key={getItemKey(
+                        song,
+                        index
+                      )}
+                      id={song.id}
+                      image={song.image}
+                      artists={song.artists}
+                      name={song.name}
+                      duration={song.duration}
+                      downloadUrl={
+                        song.audio ||
+                        song.downloadUrl
+                      }
+                      song={list}
+                    />
+                  )
+              )}
+            </div>
+          </section>
+        )}
+
+
+        {/* ============================================
+            SPOTIFY TRACKS
+        ============================================ */}
+
+        {spotifyTracks.length > 0 && (
+          <section className="px-4 lg:px-8">
             <div
               className="
                 flex
                 items-center
                 justify-between
+                mb-3
+              "
+            >
+              <h2
+                className="
+                  text-2xl
+                  font-semibold
+                  text-[var(--text-primary)]
+                "
+              >
+                Spotify Tracks
+              </h2>
+
+              <FaSpotify
+                className="
+                  text-2xl
+                  text-[#1DB954]
+                "
+              />
+            </div>
+
+            <div
+              className="
+                grid
+                grid-cols-1
+                md:grid-cols-2
+                xl:grid-cols-3
                 gap-3
               "
             >
-              <div className="min-w-0">
-                <h1
-                  className="
-                    text-2xl
-                    font-bold
-                    text-[var(--text-primary)]
-
-                    sm:text-3xl
-                  "
-                >
-                  Favourite
-                </h1>
-
-                <p
-                  className="
-                    mt-1
-                    text-sm
-                    text-[var(--text-secondary)]
-                  "
-                >
-                  Your favourite songs,
-                  albums and playlists
-                </p>
-              </div>
-
-              {total > 0 && (
-                <span
-                  className="
-                    shrink-0
-                    rounded-full
-                    bg-[var(--secondary-bg)]
-                    px-3
-                    py-1
-                    text-xs
-                    text-[var(--text-secondary)]
-                  "
-                >
-                  {total} item
-                  {total === 1
-                    ? ""
-                    : "s"}
-                </span>
+              {spotifyTracks.map(
+                (track, index) => (
+                  <SpotifyTrack
+                    key={getItemKey(
+                      track,
+                      index
+                    )}
+                    track={track}
+                    index={index}
+                  />
+                )
               )}
             </div>
-          </header>
+          </section>
+        )}
 
-          {/* =================================================
-              EMPTY
-          ================================================= */}
 
-          {total === 0 && (
-            <div
+        {/* ============================================
+            LIKED ALBUMS
+        ============================================ */}
+
+        {likedAlbums.length > 0 && (
+          <section>
+            <h2
               className="
-                flex
-                min-h-[55vh]
-                flex-col
-                items-center
-                justify-center
-                px-4
-                pb-8
-                text-center
+                text-2xl
+                font-semibold
+                px-5
+                py-3
+                text-[var(--text-primary)]
               "
             >
-              <div
+              Liked Albums
+            </h2>
+
+            <div
+              className="
+                relative
+                flex
+                items-center
+                mx-1
+                lg:mx-8
+              "
+            >
+              <button
+                type="button"
                 className="
-                  mb-5
-                  text-[5rem]
-                  leading-none
-                  text-[var(--text-secondary)]
-                "
-                aria-hidden="true"
-              >
-                ♡
-              </div>
-
-              <h2
-                className="
-                  text-xl
-                  font-semibold
-                  text-[var(--text-primary)]
-
-                  sm:text-2xl
-                "
-              >
-                No Favourite Items
-              </h2>
-
-              <p
-                className="
-                  mt-3
-                  max-w-md
-                  text-sm
-                  text-[var(--text-secondary)]
-
-                  sm:text-base
-                "
-              >
-                Import from Spotify or
-                like songs, albums and
-                playlists.
-              </p>
-            </div>
-          )}
-
-          {/* =================================================
-              SONGS
-          ================================================= */}
-
-          {likedSongs.length > 0 && (
-            <section className="mb-10">
-              <div
-                className="
-                  mb-3
-                  flex
+                  arrow-btn
+                  absolute
+                  left-0
+                  z-20
+                  hidden
+                  lg:flex
                   items-center
-                  justify-between
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
                 "
+                onClick={() =>
+                  scrollLeft(
+                    albumsScrollRef
+                  )
+                }
+                aria-label="Previous albums"
               >
-                <h2
-                  className="
-                    text-xl
-                    font-bold
-                    text-[var(--text-primary)]
-                  "
-                >
-                  Songs
-                </h2>
-
-                <span
-                  className="
-                    rounded-full
-                    bg-[var(--secondary-bg)]
-                    px-2.5
-                    py-1
-                    text-xs
-                    text-[var(--text-secondary)]
-                  "
-                >
-                  {likedSongs.length}
-                </span>
-              </div>
+                <MdOutlineKeyboardArrowLeft />
+              </button>
 
               <div
+                ref={albumsScrollRef}
                 className="
+                  flex
+                  gap-3
+                  overflow-x-auto
+                  scroll-hide
+                  scroll-smooth
                   w-full
-                  overflow-hidden
-                  rounded-xl
-
-                  border
-                  border-[var(--card-border)]
-
-                  bg-[var(--card-bg)]
-
-                  transition-colors
-                  duration-200
-                "
-              >
-                {likedSongs.map(
-                  (song, index) => {
-                    const spotifyUrl =
-                      getSpotifyUrl(song);
-
-                    return (
-                      <div
-                        key={getItemKey(
-                          song,
-                          `song-${index}`
-                        )}
-                        className="
-                          relative
-                          flex
-                          items-center
-
-                          border-b
-                          border-[var(--card-border)]
-
-                          last:border-b-0
-                        "
-                      >
-                        <div
-                          className="
-                            min-w-0
-                            flex-1
-                          "
-                        >
-                          <SongsList
-                            {...song}
-                            song={song}
-                            songs={likedSongs}
-                            onPlay={
-                              playFavouriteSong
-                            }
-                          />
-                        </div>
-
-                        {/* SPOTIFY SONG */}
-
-                        {spotifyUrl && (
-                          <a
-                            href={spotifyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="
-                              mr-1
-                              flex
-                              h-9
-                              w-9
-                              shrink-0
-                              items-center
-                              justify-center
-                              rounded-full
-                              text-[#1DB954]
-                              hover:bg-[#1DB954]/10
-                              active:bg-[#1DB954]/20
-                            "
-                            title="Open in Spotify"
-                            aria-label="Open song in Spotify"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                            }}
-                          >
-                            <FaSpotify className="text-xl" />
-                          </a>
-                        )}
-
-                        {/* REMOVE */}
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeItem(
-                              "likedSongs",
-                              song
-                            )
-                          }
-                          className="
-                            mr-2
-                            flex
-                            h-8
-                            w-8
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-full
-                            text-red-500
-                            hover:bg-red-500/10
-                            active:bg-red-500/20
-                          "
-                          title="Remove from Favourite"
-                          aria-label="Remove song from Favourite"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* =================================================
-              ALBUMS
-          ================================================= */}
-
-          {likedAlbums.length > 0 && (
-            <section className="mb-10">
-              <div
-                className="
-                  mb-4
-                  flex
-                  items-center
-                  justify-between
-                "
-              >
-                <h2
-                  className="
-                    text-xl
-                    font-bold
-                    text-[var(--text-primary)]
-                  "
-                >
-                  Albums
-                </h2>
-
-                <span
-                  className="
-                    rounded-full
-                    bg-[var(--secondary-bg)]
-                    px-2.5
-                    py-1
-                    text-xs
-                    text-[var(--text-secondary)]
-                  "
-                >
-                  {likedAlbums.length}
-                </span>
-              </div>
-
-              <div
-                className="
-                  grid
-                  grid-cols-2
-                  gap-4
-
-                  sm:grid-cols-3
-                  md:grid-cols-4
-                  lg:grid-cols-5
-                  xl:grid-cols-6
+                  px-3
                 "
               >
                 {likedAlbums.map(
-                  (album, index) => {
-                    const spotifyUrl =
-                      getSpotifyUrl(
-                        album
-                      );
-
-                    const content = (
-                      <>
-                        <div
-                          className="
-                            relative
-                            aspect-square
-                            overflow-hidden
-                            rounded-xl
-                            bg-[var(--secondary-bg)]
-                          "
-                        >
-                          <img
-                            src={imageUrl(
-                              album?.image
-                            )}
-                            alt={
-                              album?.name ||
-                              "Album"
-                            }
-                            className="
-                              h-full
-                              w-full
-                              object-cover
-                              transition
-                              duration-300
-                              group-hover:scale-105
-                            "
-                            loading="lazy"
-                            onError={(
-                              event
-                            ) => {
-                              event.currentTarget.onerror =
-                                null;
-
-                              event.currentTarget.src =
-                                "/Unknown.png";
-                            }}
-                          />
-
-                          {spotifyUrl && (
-                            <span
-                              className="
-                                absolute
-                                right-2
-                                top-2
-                                rounded-full
-                                bg-[#1DB954]
-                                px-2
-                                py-1
-                                text-[10px]
-                                font-bold
-                                text-black
-                              "
-                            >
-                              Spotify
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="px-1 pt-2">
-                          <div
-                            className="
-                              truncate
-                              text-sm
-                              font-semibold
-                              text-[var(--text-primary)]
-                            "
-                          >
-                            {album?.name ||
-                              "Unknown Album"}
-                          </div>
-
-                          <div
-                            className="
-                              mt-1
-                              truncate
-                              text-xs
-                              text-[var(--text-secondary)]
-                            "
-                          >
-                            {artistNames(
-                              album?.artists
-                            ) ||
-                              "Album"}
-                          </div>
-                        </div>
-                      </>
-                    );
-
-                    return (
-                      <div
-                        key={getItemKey(
-                          album,
-                          `album-${index}`
-                        )}
-                        className="
-                          group
-                          relative
-                        "
-                      >
-                        {spotifyUrl ? (
-                          <a
-                            href={spotifyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block"
-                            title="Open album in Spotify"
-                            aria-label="Open album in Spotify"
-                          >
-                            {content}
-                          </a>
-                        ) : album?.id ? (
-                          <Link
-                            to={`/albums/${album.id}`}
-                            className="block"
-                            title="Open album"
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          <div>
-                            {content}
-                          </div>
-                        )}
-
-                        {/* REMOVE ALBUM */}
-
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-
-                            removeItem(
-                              "likedAlbums",
-                              album
-                            );
-                          }}
-                          className="
-                            absolute
-                            left-2
-                            top-2
-                            z-20
-
-                            flex
-                            h-8
-                            w-8
-                            items-center
-                            justify-center
-
-                            rounded-full
-
-                            bg-black/70
-                            text-white
-
-                            opacity-100
-
-                            sm:opacity-0
-                            sm:group-hover:opacity-100
-
-                            transition-opacity
-                          "
-                          title="Remove from Favourite"
-                          aria-label="Remove album from Favourite"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  }
+                  (album, index) => (
+                    <div
+                      key={getItemKey(
+                        album,
+                        index
+                      )}
+                      className="flex-shrink-0"
+                    >
+                      <AlbumItems
+                        {...album}
+                      />
+                    </div>
+                  )
                 )}
               </div>
-            </section>
-          )}
 
-          {/* =================================================
-              PLAYLISTS
-          ================================================= */}
-
-          {likedPlaylists.length > 0 && (
-            <section className="mb-10">
-              <div
+              <button
+                type="button"
                 className="
-                  mb-4
-                  flex
+                  arrow-btn
+                  absolute
+                  right-0
+                  z-20
+                  hidden
+                  lg:flex
                   items-center
-                  justify-between
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollRight(
+                    albumsScrollRef
+                  )
+                }
+                aria-label="Next albums"
+              >
+                <MdOutlineKeyboardArrowRight />
+              </button>
+            </div>
+          </section>
+        )}
+
+
+        {/* ============================================
+            SPOTIFY ALBUMS
+        ============================================ */}
+
+        {spotifyAlbums.length > 0 && (
+          <section>
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                px-5
+                py-3
+              "
+            >
+              <h2
+                className="
+                  text-2xl
+                  font-semibold
+                  text-[var(--text-primary)]
                 "
               >
-                <h2
-                  className="
-                    text-xl
-                    font-bold
-                    text-[var(--text-primary)]
-                  "
-                >
-                  Playlists
-                </h2>
+                Spotify Albums
+              </h2>
 
-                <span
-                  className="
-                    rounded-full
-                    bg-[var(--secondary-bg)]
-                    px-2.5
-                    py-1
-                    text-xs
-                    text-[var(--text-secondary)]
-                  "
-                >
-                  {likedPlaylists.length}
-                </span>
-              </div>
+              <FaSpotify
+                className="
+                  text-2xl
+                  text-[#1DB954]
+                "
+              />
+            </div>
+
+            <div
+              className="
+                relative
+                flex
+                items-center
+                mx-1
+                lg:mx-8
+              "
+            >
+              <button
+                type="button"
+                className="
+                  arrow-btn
+                  absolute
+                  left-0
+                  z-20
+                  hidden
+                  lg:flex
+                  items-center
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollLeft(
+                    spotifyAlbumsScrollRef
+                  )
+                }
+                aria-label="Previous Spotify albums"
+              >
+                <MdOutlineKeyboardArrowLeft />
+              </button>
 
               <div
+                ref={
+                  spotifyAlbumsScrollRef
+                }
                 className="
-                  grid
-                  grid-cols-2
-                  gap-4
+                  flex
+                  gap-3
+                  overflow-x-auto
+                  scroll-hide
+                  scroll-smooth
+                  w-full
+                  px-3
+                "
+              >
+                {spotifyAlbums.map(
+                  (album, index) => (
+                    <SpotifyAlbum
+                      key={getItemKey(
+                        album,
+                        index
+                      )}
+                      album={album}
+                      index={index}
+                    />
+                  )
+                )}
+              </div>
 
-                  sm:grid-cols-3
-                  md:grid-cols-4
-                  lg:grid-cols-5
-                  xl:grid-cols-6
+              <button
+                type="button"
+                className="
+                  arrow-btn
+                  absolute
+                  right-0
+                  z-20
+                  hidden
+                  lg:flex
+                  items-center
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollRight(
+                    spotifyAlbumsScrollRef
+                  )
+                }
+                aria-label="Next Spotify albums"
+              >
+                <MdOutlineKeyboardArrowRight />
+              </button>
+            </div>
+          </section>
+        )}
+
+
+        {/* ============================================
+            LIKED PLAYLISTS
+        ============================================ */}
+
+        {likedPlaylists.length > 0 && (
+          <section>
+            <h2
+              className="
+                text-2xl
+                font-semibold
+                px-5
+                py-3
+                text-[var(--text-primary)]
+              "
+            >
+              Liked Playlists
+            </h2>
+
+            <div
+              className="
+                relative
+                flex
+                items-center
+                mx-1
+                lg:mx-8
+              "
+            >
+              <button
+                type="button"
+                className="
+                  arrow-btn
+                  absolute
+                  left-0
+                  z-20
+                  hidden
+                  lg:flex
+                  items-center
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollLeft(
+                    playlistsScrollRef
+                  )
+                }
+                aria-label="Previous playlists"
+              >
+                <MdOutlineKeyboardArrowLeft />
+              </button>
+
+              <div
+                ref={playlistsScrollRef}
+                className="
+                  flex
+                  gap-3
+                  overflow-x-auto
+                  scroll-hide
+                  scroll-smooth
+                  w-full
+                  px-3
                 "
               >
                 {likedPlaylists.map(
-                  (playlist, index) => {
-                    const spotifyUrl =
-                      getSpotifyUrl(
-                        playlist
-                      );
-
-                    const spotifyType =
-                      getSpotifyType(
-                        playlist
-                      );
-
-                    const content = (
-                      <>
-                        <div
-                          className="
-                            relative
-                            aspect-square
-                            overflow-hidden
-                            rounded-xl
-                            bg-[var(--secondary-bg)]
-                          "
-                        >
-                          <img
-                            src={imageUrl(
-                              playlist?.image
-                            )}
-                            alt={
-                              playlist?.name ||
-                              "Playlist"
-                            }
-                            className="
-                              h-full
-                              w-full
-                              object-cover
-                              transition
-                              duration-300
-                              group-hover:scale-105
-                            "
-                            loading="lazy"
-                            onError={(
-                              event
-                            ) => {
-                              event.currentTarget.onerror =
-                                null;
-
-                              event.currentTarget.src =
-                                "/Unknown.png";
-                            }}
-                          />
-
-                          {spotifyUrl && (
-                            <span
-                              className="
-                                absolute
-                                right-2
-                                top-2
-
-                                flex
-                                items-center
-                                gap-1
-
-                                rounded-full
-
-                                bg-[#1DB954]
-
-                                px-2
-                                py-1
-
-                                text-[10px]
-                                font-bold
-                                text-black
-                              "
-                            >
-                              <FaSpotify />
-                              Spotify
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="px-1 pt-2">
-                          <div
-                            className="
-                              truncate
-                              text-sm
-                              font-semibold
-                              text-[var(--text-primary)]
-                            "
-                          >
-                            {playlist?.name ||
-                              "Unknown Playlist"}
-                          </div>
-
-                          <div
-                            className="
-                              mt-1
-                              truncate
-                              text-xs
-                              text-[var(--text-secondary)]
-                            "
-                          >
-                            {spotifyUrl ||
-                            spotifyType ===
-                              "playlist"
-                              ? "Spotify Playlist"
-                              : "Playlist"}
-                          </div>
-                        </div>
-                      </>
-                    );
-
-                    return (
-                      <div
-                        key={getItemKey(
-                          playlist,
-                          `playlist-${index}`
-                        )}
-                        className="
-                          group
-                          relative
-                        "
-                      >
-                        {/* SPOTIFY PLAYLIST */}
-
-                        {spotifyUrl ? (
-                          <a
-                            href={spotifyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="
-                              block
-                              cursor-pointer
-                            "
-                            title="Open playlist in Spotify"
-                            aria-label="Open playlist in Spotify"
-                          >
-                            {content}
-                          </a>
-                        ) : playlist?.id ? (
-                          <Link
-                            to={`/playlists/${playlist.id}`}
-                            className="
-                              block
-                              cursor-pointer
-                            "
-                            title="Open playlist"
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          <div>
-                            {content}
-                          </div>
-                        )}
-
-                        {/* REMOVE PLAYLIST */}
-
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-
-                            removeItem(
-                              "likedPlaylists",
-                              playlist
-                            );
-                          }}
-                          className="
-                            absolute
-                            left-2
-                            top-2
-                            z-20
-
-                            flex
-                            h-8
-                            w-8
-                            items-center
-                            justify-center
-
-                            rounded-full
-
-                            bg-black/70
-                            text-white
-
-                            opacity-100
-
-                            sm:opacity-0
-                            sm:group-hover:opacity-100
-
-                            transition-opacity
-                          "
-                          title="Remove from Favourite"
-                          aria-label="Remove playlist from Favourite"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  }
+                  (playlist, index) => (
+                    <div
+                      key={getItemKey(
+                        playlist,
+                        index
+                      )}
+                      className="flex-shrink-0"
+                    >
+                      <PlaylistItems
+                        {...playlist}
+                      />
+                    </div>
+                  )
                 )}
               </div>
-            </section>
-          )}
-        </div>
+
+              <button
+                type="button"
+                className="
+                  arrow-btn
+                  absolute
+                  right-0
+                  z-20
+                  hidden
+                  lg:flex
+                  items-center
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollRight(
+                    playlistsScrollRef
+                  )
+                }
+                aria-label="Next playlists"
+              >
+                <MdOutlineKeyboardArrowRight />
+              </button>
+            </div>
+          </section>
+        )}
+
+
+        {/* ============================================
+            SPOTIFY PLAYLISTS
+        ============================================ */}
+
+        {spotifyPlaylists.length > 0 && (
+          <section>
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                px-5
+                py-3
+              "
+            >
+              <h2
+                className="
+                  text-2xl
+                  font-semibold
+                  text-[var(--text-primary)]
+                "
+              >
+                Spotify Playlists
+              </h2>
+
+              <FaSpotify
+                className="
+                  text-2xl
+                  text-[#1DB954]
+                "
+              />
+            </div>
+
+            <div
+              className="
+                relative
+                flex
+                items-center
+                mx-1
+                lg:mx-8
+              "
+            >
+              <button
+                type="button"
+                className="
+                  arrow-btn
+                  absolute
+                  left-0
+                  z-20
+                  hidden
+                  lg:flex
+                  items-center
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollLeft(
+                    spotifyPlaylistsScrollRef
+                  )
+                }
+                aria-label="Previous Spotify playlists"
+              >
+                <MdOutlineKeyboardArrowLeft />
+              </button>
+
+              <div
+                ref={
+                  spotifyPlaylistsScrollRef
+                }
+                className="
+                  flex
+                  gap-3
+                  overflow-x-auto
+                  scroll-hide
+                  scroll-smooth
+                  w-full
+                  px-3
+                "
+              >
+                {spotifyPlaylists.map(
+                  (playlist, index) => (
+                    <SpotifyPlaylist
+                      key={getItemKey(
+                        playlist,
+                        index
+                      )}
+                      playlist={playlist}
+                      index={index}
+                    />
+                  )
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="
+                  arrow-btn
+                  absolute
+                  right-0
+                  z-20
+                  hidden
+                  lg:flex
+                  items-center
+                  justify-center
+                  w-10
+                  h-36
+                  text-3xl
+                  cursor-pointer
+                "
+                onClick={() =>
+                  scrollRight(
+                    spotifyPlaylistsScrollRef
+                  )
+                }
+                aria-label="Next Spotify playlists"
+              >
+                <MdOutlineKeyboardArrowRight />
+              </button>
+            </div>
+          </section>
+        )}
+
+
+        {/* ============================================
+            EMPTY
+        ============================================ */}
+
+        {!hasFavourites && (
+          <div
+            className="
+              mx-5
+              rounded-xl
+              border
+              border-[var(--card-border)]
+              bg-[var(--card-bg)]
+              px-6
+              py-10
+              text-center
+              text-lg
+              text-[var(--text-secondary)]
+            "
+          >
+            No Liked Songs, Albums, or Playlists.
+          </div>
+        )}
+
       </main>
 
       <Navigator />
